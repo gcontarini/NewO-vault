@@ -1,6 +1,6 @@
 pragma solidity ^0.8.0;
 
-// https://docs.synthetix.io/contracts/source/contracts/owned
+// https://docs.synthetix.io/contracts/source/contracts/Owned
 abstract contract Owned {
     address public owner;
     address public nominatedOwner;

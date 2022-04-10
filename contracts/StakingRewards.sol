@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./RewardsDistributionRecipient.sol";
 import "./Pausable.sol";
 
-// https://docs.synthetix.io/contracts/source/contracts/stakingrewards
+// https://docs.synthetix.io/contracts/source/contracts/StakingRewards
 contract StakingRewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
