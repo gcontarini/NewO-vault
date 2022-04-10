@@ -4,8 +4,9 @@ import { ethers } from "hardhat";
 
 async function main() {
   // We get the contract to deploy
-  const NewOrderERC20 = await ethers.getContractFactory("NewOrderERC20");
+  const NewOrderERC20 = await ethers.getContractFactory("NewOrderToken");
   const newo = await NewOrderERC20.deploy(1000);
+  
 
   await newo.deployed();
 
