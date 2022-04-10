@@ -1,6 +1,23 @@
 # NewO vault system
 New vault system with veTokens and multiple rewards distribuition tokens.
 
+# Instructions to run
+First install npm dependecies
+`npm init`
+
+Now compile the contracts 
+`npx hardhat compile`
+
+Run a hardhat node
+`npx hardhat node`
+
+Deploy the contracts
+`npx hardhat run --network localhost scripts/deploy.ts`
+
+# Developers
+## Branch strategy
+Development branch is the wip. Don't push to main/master.
+
 # Etherscan verification
 
 To try out Etherscan verification, you first need to deploy a contract to an Ethereum network that's supported by Etherscan, such as Ropsten.
