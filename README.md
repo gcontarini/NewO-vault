@@ -3,7 +3,7 @@ New vault system with veTokens and multiple rewards distribuition tokens.
 
 # Instructions to run
 First install npm dependecies
-`npm init`
+`npm install`
 
 Now compile the contracts 
 `npx hardhat compile`
