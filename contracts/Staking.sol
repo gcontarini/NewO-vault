@@ -15,6 +15,7 @@ contract Staking is ReentrancyGuard, Pausable {
     IERC20 public stakingToken;
 
     uint256 private _totalSupply;
+    address public _rewardContract;
     mapping(address => uint256) private _balances;
 
     /* ========== CONSTRUCTOR ========== */
@@ -24,6 +25,7 @@ contract Staking is ReentrancyGuard, Pausable {
         address _stakingToken
     ) Owned(_owner) {
         stakingToken = IERC20(_stakingToken);
+        paused = true;
     }
 
     /* ========== VIEWS ========== */
@@ -38,24 +40,38 @@ contract Staking is ReentrancyGuard, Pausable {
 
     /* ========== MUTATIVE FUNCTIONS ========== */
 
-    function stake(uint256 amount) external nonReentrant notPaused {
+    function stake(uint256 amount) external nonReentrant notPaused updateReward(msg.sender) {
         require(amount > 0, "Cannot stake 0");
-        _totalSupply = _totalSupply+amount;
-        _balances[msg.sender] = _balances[msg.sender]+amount;
+        _totalSupply = _totalSupply + amount;
+        _balances[msg.sender] = _balances[msg.sender] + amount;
         stakingToken.safeTransferFrom(msg.sender, address(this), amount);
         emit Staked(msg.sender, amount);
     }
 
-    function withdraw(uint256 amount) public nonReentrant {
+    function withdraw(uint256 amount) public nonReentrant updateReward(msg.sender) {
         require(amount > 0, "Cannot withdraw 0");
-        _totalSupply = _totalSupply-amount;
-        _balances[msg.sender] = _balances[msg.sender]-amount;
+        _totalSupply = _totalSupply - amount;
+        _balances[msg.sender] = _balances[msg.sender] - amount;
         stakingToken.safeTransfer(msg.sender, amount);
         emit Withdrawn(msg.sender, amount);
     }
 
     function exit() external {
         withdraw(_balances[msg.sender]);
+        // Pay rewards to exiter
+    }
+    
+    function setRewardContract(address _reward) external onlyOwner {
+        _rewardContract = _reward;
+        paused = false;
+    }
+    
+    /* ========== MODIFIERS ========== */
+
+    modifier updateReward(address account) {
+        // Has to import this interface when created
+        IRewards(_rewardContract).superUpdateReward(account);
+        _;
     }
 
     /* ========== EVENTS ========== */

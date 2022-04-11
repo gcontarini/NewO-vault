@@ -2,17 +2,17 @@
 New vault system with veTokens and multiple rewards distribuition tokens.
 
 # Instructions to run
-First install npm dependecies
+First install npm dependecies <br>
 `npm init`
 
 Now compile the contracts 
-`npx hardhat compile`
+`npx hardhat compile` <br>
 
 Run a hardhat node
-`npx hardhat node`
+`npx hardhat node` <br>
 
 Deploy the contracts
-`npx hardhat run --network localhost scripts/deploy.ts`
+`npx hardhat run --network localhost scripts/deploy.ts` <br>
 
 # Developers
 ## Branch strategy

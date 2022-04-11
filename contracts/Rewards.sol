@@ -119,6 +119,16 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
         rewardsDuration = _rewardsDuration;
         emit RewardsDurationUpdated(rewardsDuration);
     }
+    
+    function superUpdateReward(address account) external {
+        require(msg.sender == vault, "The caller is not the vault");
+        rewardPerTokenStored = rewardPerToken();
+        lastUpdateTime = lastTimeRewardApplicable();
+        if (account != address(0)) {
+            rewards[account] = earned(account);
+            userRewardPerTokenPaid[account] = rewardPerTokenStored;
+        }
+    }
 
     /* ========== MODIFIERS ========== */
 
