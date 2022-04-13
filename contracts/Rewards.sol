@@ -14,15 +14,15 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
 
     IERC20 public rewardsToken;
     // TODO implement vault as interface
-    address public vault;
-    uint256 public periodFinish = 0;
-    uint256 public rewardRate = 0;
-    uint256 public rewardsDuration = 7 days;
-    uint256 public lastUpdateTime;
-    uint256 public rewardPerTokenStored;
+    address public vault;                    //address of the ve vault
+    uint256 public periodFinish = 0;         //end of the rewardDuration period
+    uint256 public rewardRate = 0;           //Rewards per second distributed by the contract ==> rewardavailable / rewardDuration
+    uint256 public rewardsDuration = 7 days; //the rewards inside the contract are gone be distributed during this period
+    uint256 public lastUpdateTime;           //when the reward period started
+    uint256 public rewardPerTokenStored;     //amounts of reward per staked token
 
-    mapping(address => uint256) public userRewardPerTokenPaid;
-    mapping(address => uint256) public rewards;
+    mapping(address => uint256) public userRewardPerTokenPaid;  //rewardPerTokenStored last update
+    mapping(address => uint256) public rewards; //earned() last update
 
     /* ========== CONSTRUCTOR ========== */
 
@@ -59,7 +59,8 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
                 (lastTimeRewardApplicable()-(lastUpdateTime))*(rewardRate)*(1e18)/(_totalSupply)
             );
     }
-
+    
+    // This function calculates how much rewards a staker earned and there for will get when calling getReward()
     function earned(address account) public view returns (uint256) {
         // Again, vault is not an ERC20 but implement this interface 
         return (IERC20(vault).balanceOf(account) * (rewardPerToken() - userRewardPerTokenPaid[account]) / (1e18)) + rewards[account];
@@ -120,9 +121,10 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
         emit RewardsDurationUpdated(rewardsDuration);
     }
     
+    
     function superUpdateReward(address account) external {
-        require(msg.sender == vault, "The caller is not the vault");
-        rewardPerTokenStored = rewardPerToken();
+        require(msg.sender == vault, "The caller is not the vault"); ///???????
+        rewardPerTokenStored = rewardPerToken(); 
         lastUpdateTime = lastTimeRewardApplicable();
         if (account != address(0)) {
             rewards[account] = earned(account);
