@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./Pausable.sol";
 
 // https://docs.synthetix.io/contracts/source/contracts/StakingRewards
-contract Staking is ReentrancyGuard, Pausable {
+contract VeVault is ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
     /* ========== STATE VARIABLES ========== */
