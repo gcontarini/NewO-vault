@@ -313,7 +313,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         _totalManagedAssets += assets;
         _assetBalances[receiver] += assets;
         
-        IERC20 assetToken = IERC20(_assetTokenAddress);
+        // IERC20 assetToken = IERC20(_assetTokenAddress);
         assetToken.safeTransferFrom(receiver, address(this), assets);
 
         emit Deposit(msg.sender, receiver, assets, shares);
