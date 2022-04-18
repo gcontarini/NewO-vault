@@ -24,33 +24,33 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     mapping(address => uint256) private _unlockDate;
     // mapping(address => uint256) private _multiplier;
 
-    uint256 private _minLockTime;
-    uint256 private _maxLockTime;
-    bool    private _enforceTime;
-    uint256 private _penaltyPerc;
-    uint256 private _gracePeriod;
+    uint256 internal _minLockTime;
+    uint256 internal _maxLockTime;
+    bool    internal _enforceTime;
+    uint256 internal _penaltyPerc;
+    uint256 internal _gracePeriod;
     
     /* ========== CONSTRUCTOR ========== */
     
-    constructor(
-        address owner_,
-        address stakingToken_,
-        uint256 bountyReward_,
-        uint256 gracePeriod_,
-        uint256 minLockTime_,
-        uint256 maxLockTime_
-    ) Owned(owner_) {
-        assetToken = IERC20(stakingToken_);
-        _assetTokenAddress = stakingToken_;
+    // constructor(
+    //     address owner_,
+    //     address stakingToken_,
+    //     uint256 bountyReward_,
+    //     uint256 gracePeriod_,
+    //     uint256 minLockTime_,
+    //     uint256 maxLockTime_
+    // ) Owned(owner_) {
+    //     assetToken = IERC20(stakingToken_);
+    //     _assetTokenAddress = stakingToken_;
 
-        _penaltyPerc = bountyReward_;
-        _gracePeriod = gracePeriod_; 
-        _minLockTime = minLockTime_;
-        _maxLockTime = maxLockTime_;
+    //     _penaltyPerc = bountyReward_;
+    //     _gracePeriod = gracePeriod_; 
+    //     _minLockTime = minLockTime_;
+    //     _maxLockTime = maxLockTime_;
 
-        _enforceTime = true;
-        paused = false;
-    }
+    //     _enforceTime = true;
+    //     paused = false;
+    // }
     
     /* ========== VIEWS ========== */
     
@@ -297,7 +297,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * Only allow deposits for the caller.
      */
     function deposit(uint256 assets, address receiver, uint256 lockTime)
-            external 
+            public 
             nonReentrant 
             notPaused 
             returns(uint256 shares) {
@@ -319,6 +319,10 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         return shares;
     }
     
+    function deposit(uint256 assets, address receiver) override external returns(uint256 shares) {
+        return deposit(assets, receiver, _minLockTime);
+    }
+    
     /**
      * Mints exactly shares Vault shares to
      * receiver by depositing amount of underlying tokens.
@@ -326,7 +330,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * Only allow deposits for the caller.
      */
     function mint(uint256 shares, address receiver, uint256 lockTime)
-            external
+            public
             nonReentrant
             notPaused
             returns(uint256 assets) {
@@ -344,7 +348,11 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
 
         emit Deposit(msg.sender, receiver, assets, shares);
         return assets;
-        }
+    }
+
+    function mint(uint256 shares, address receiver) override external returns(uint256 assets) {
+        return mint(shares, receiver, _minLockTime);
+    }
 
     // Burns shares from owner and sends exactly assets of underlying tokens to receiver.
     function withdraw(uint256 assets, address receiver, address owner)
