@@ -24,6 +24,10 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     mapping(address => uint256) private _unlockDate;
     // mapping(address => uint256) private _multiplier;
 
+    // ERC20 metadata
+    string public _name;
+    string public _symbol;
+
     uint256 internal _minLockTime;
     uint256 internal _maxLockTime;
     bool    internal _enforceTime;
@@ -31,6 +35,11 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     uint256 internal _gracePeriod;
     
     /* ========== CONSTRUCTOR ========== */
+
+    constructor(string memory name_, string memory symbol_) {
+        _name = name_;
+        _symbol = symbol_;
+    }
     
     // constructor(
     //     address owner_,
@@ -115,7 +124,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * Maximum amount of the underlying asset that can be deposited into
      * the Vault for the receiver, through a deposit call.
      */
-    function maxDeposit(address receiver) external view override returns(uint256 maxAssets) {
+    function maxDeposit(address) external pure override returns(uint256 maxAssets) {
         return 2 ** 256 - 1;
     }
 
@@ -124,7 +133,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * Allows an on-chain or off-chain user to simulate the effects of
      * their deposit at the current block, given current on-chain conditions.
      */
-    function previewDeposit(uint256 assets, uint256 lockTime) public view returns(uint256 shares) {
+    function previewDeposit(uint256 assets, uint256 lockTime) public pure returns(uint256 shares) {
         return convertToShares(assets, lockTime);
     }
 
@@ -136,7 +145,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * Maximum amount of shares that can be minted from the Vault for the receiver,
      * through a mint call.
      */
-    function maxMint(address receiver) external view override returns(uint256 maxShares) {
+    function maxMint(address) external pure override returns(uint256 maxShares) {
         return 2 ** 256 - 1;
     }
 
@@ -203,7 +212,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * Ve tokens are not transferable.
      * Always returns zero.
      */
-    function allowance(address owner, address spender) external pure override returns (uint256) {
+    function allowance(address, address) external pure override returns (uint256) {
         return 0;
     }
 
@@ -249,18 +258,50 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      function maxLockTime() external view returns(uint256) {
          return _maxLockTime;
      }
+
+     /**
+     * @dev Returns the name of the token.
+     */
+    function name() public view virtual returns (string memory) {
+        return _name;
+    }
+
+    /**
+     * @dev Returns the symbol of the token, usually a shorter version of the
+     * name.
+     */
+    function symbol() public view virtual returns (string memory) {
+        return _symbol;
+    }
+
+    /**
+     * @dev Returns the number of decimals used to get its user representation.
+     * For example, if `decimals` equals `2`, a balance of `505` tokens should
+     * be displayed to a user as `5.05` (`505 / 10 ** 2`).
+     *
+     * Tokens usually opt for a value of 18, imitating the relationship between
+     * Ether and Wei. This is the value {ERC20} uses, unless this function is
+     * overridden;
+     *
+     * NOTE: This information is only used for _display_ purposes: it in
+     * no way affects any of the arithmetic of the contract, including
+     * {IERC20-balanceOf} and {IERC20-transfer}.
+     */
+    function decimals() public view virtual returns (uint8) {
+        return 18;
+    }
     
     /* ========== ERC20 NOT ALLOWED FUNCTIONS ========== */
 
-    function transfer(address to, uint256 amount) external pure override returns (bool) {
+    function transfer(address, uint256) external pure override returns (bool) {
         revert("Transfer not allowed for this token.");
     }
 
-    function approve(address spender, uint256 amount) external pure override returns (bool) {
+    function approve(address, uint256) external pure override returns (bool) {
         revert("Approve not allowed for this token.");
     }
 
-    function transferFrom(address from, address to, uint256 amount) external pure override returns (bool) {
+    function transferFrom(address, address, uint256) external pure override returns (bool) {
         revert("Transfer not allowed for this token.");
     }
 
