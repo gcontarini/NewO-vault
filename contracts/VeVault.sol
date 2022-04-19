@@ -394,21 +394,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
             notPaused
             override
             returns(uint256 shares) {
-        require(owner != address(0), "Cannot withdraw for null address");
-        if (_enforceTime && msg.sender != owner) {
-            // If now < unlockDate: value will be negative
-            // Since _gracePeriod is unsigned int, no negative values
-            // are allowed. What will happen????
-            require(block.timestamp - _unlockDate[owner] > _gracePeriod, "Funds in grace period.");
-        }
-
-        // Pay reward to caller
-        uint256 amountPenalty = 0;
-        if (msg.sender != owner) {
-            amountPenalty = _payPenalty(owner, assets);
-        }
-        
-        return _withdraw(assets - amountPenalty, receiver, owner);
+        return _withdraw(assets, receiver, owner);
     }
 
     // Burns exactly shares from owner and sends assets of underlying tokens to receiver.
@@ -418,23 +404,21 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
             notPaused
             override
             returns(uint256 assets) {
-        require(owner != address(0), "Cannot withdraw for null address");
-        if (_enforceTime && owner != msg.sender) {
-            require(block.timestamp - _unlockDate[owner] > _gracePeriod, "Funds in grace period.");
-        }
-
         assets = shares / avgVeMult(owner);
+        // This is for testing only
+        uint256 testShares = _withdraw(assets, receiver, owner);
+        require(testShares == shares, "DEBUG ONLY");
         
-        // Pay reward to caller
-        uint256 amountPenalty = 0;
-        if (msg.sender != owner) {
-            amountPenalty = _payPenalty(owner, assets);
-        }
-
-        // Remove test_shares and require afterwards
-        uint256 testShares = _withdraw(assets - amountPenalty, receiver, owner);
-        require(testShares == shares, "I'M HERE TO TEST ONLY");
         return assets;
+    }
+
+    // Withdraw all funds for caller
+    function exit()
+            external 
+            nonReentrant 
+            notPaused
+            returns(uint256 shares) {
+        return _withdraw(_assetBalances[msg.sender], msg.sender, msg.sender);
     }
 
     /**
@@ -443,6 +427,13 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     */
     function changeUnlockRule(bool flag) external onlyOwner {
         _enforceTime = flag;
+    }
+
+    // Added to support recovering LP Rewards from other systems such as BAL to be distributed to holders
+    function recoverERC20(address tokenAddress, uint256 tokenAmount) external onlyOwner {
+        require(tokenAddress != _assetTokenAddress, "Cannot withdraw the staking token");
+        IERC20(tokenAddress).safeTransfer(owner, tokenAmount);
+        emit Recovered(tokenAddress, tokenAmount);
     }
 
     /* ========== INTERNAL FUNCTIONS ========== */
@@ -475,15 +466,27 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     }
 
     function _withdraw(uint256 assets, address receiver, address owner) internal returns(uint256 shares) {
+        require(owner != address(0), "Cannot withdraw for null address");
         require(_assetBalances[owner] >= assets, "Address has not enought assets.");
-        if (_enforceTime) {
-            require(block.timestamp > _unlockDate[owner], "Funds not unlocked yet.");
-        }
         if (msg.sender != owner) {
             require(receiver == owner, "Must withdraw to owner address.");
+            // Must check what happens for negative value in the block.timestamp
+            if (_enforceTime) {
+                require(block.timestamp - _unlockDate[owner] > _gracePeriod, "Funds in grace period.");
+            }
+        }
+        else if (_enforceTime) {
+            require(block.timestamp > _unlockDate[owner], "Funds not unlocked yet.");
+        }
+
+        // Pay reward to caller
+        uint256 amountPenalty = 0;
+        if (msg.sender != owner) {
+            amountPenalty = _payPenalty(owner, assets);
         }
 
         shares = assets * avgVeMult(owner);
+        assets -= amountPenalty;
 
         _burn(owner, shares);
 
@@ -521,6 +524,5 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     event PayPenalty(address indexed caller, address indexed owner, uint256 assets);
     event Burn(address indexed user, uint256 shares);
     event Mint(address indexed user, uint256 shares);
-    // Redo this function
-    // event Recovered(address token, uint256 amount);
+    event Recovered(address token, uint256 amount);
 }
