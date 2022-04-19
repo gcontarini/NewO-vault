@@ -31,8 +31,13 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     uint256 internal _minLockTime;
     uint256 internal _maxLockTime;
     bool    internal _enforceTime;
-    uint256 internal _penaltyPerc;
+    uint256 internal _epoch;
+
+    // Penalty system
     uint256 internal _gracePeriod;
+    uint256 internal _maxPenalty;
+    uint256 internal _minPenalty;
+    uint256 internal _penaltyPerc;
     
     /* ========== CONSTRUCTOR ========== */
 
@@ -274,19 +279,6 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         return _symbol;
     }
 
-    /**
-     * @dev Returns the number of decimals used to get its user representation.
-     * For example, if `decimals` equals `2`, a balance of `505` tokens should
-     * be displayed to a user as `5.05` (`505 / 10 ** 2`).
-     *
-     * Tokens usually opt for a value of 18, imitating the relationship between
-     * Ether and Wei. This is the value {ERC20} uses, unless this function is
-     * overridden;
-     *
-     * NOTE: This information is only used for _display_ purposes: it in
-     * no way affects any of the arithmetic of the contract, including
-     * {IERC20-balanceOf} and {IERC20-transfer}.
-     */
     function decimals() public view virtual returns (uint8) {
         return 18;
     }
@@ -411,13 +403,12 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         }
 
         // Pay reward to caller
-        uint256 penaltyReward = 0;
+        uint256 amountPenalty = 0;
         if (msg.sender != owner) {
-            penaltyReward = (assets * _penaltyPerc) / 100;
-            _payPenalty(owner, penaltyReward);
+            amountPenalty = _payPenalty(owner, assets);
         }
         
-        return _withdraw(assets - penaltyReward, receiver, owner);
+        return _withdraw(assets - amountPenalty, receiver, owner);
     }
 
     // Burns exactly shares from owner and sends assets of underlying tokens to receiver.
@@ -434,18 +425,18 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
 
         assets = shares / avgVeMult(owner);
         
-        uint256 penaltyReward = 0;
+        // Pay reward to caller
+        uint256 amountPenalty = 0;
         if (msg.sender != owner) {
-            penaltyReward = (assets * _penaltyPerc) / 100;
-            _payPenalty(owner, penaltyReward);
+            amountPenalty = _payPenalty(owner, assets);
         }
 
         // Remove test_shares and require afterwards
-        uint256 testShares = _withdraw(assets - penaltyReward, receiver, owner);
+        uint256 testShares = _withdraw(assets - amountPenalty, receiver, owner);
         require(testShares == shares, "I'M HERE TO TEST ONLY");
         return assets;
     }
-    
+
     /**
     * Change the unlock rule to allow
     * withdraws. Ignores the rule if set to false.
@@ -504,11 +495,25 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         return shares;
     }
 
-    function _payPenalty(address owner, uint256 assets) internal {
-        _totalManagedAssets -= assets;
-        _assetBalances[owner] -= assets;
-        assetToken.safeTransfer(msg.sender, assets);
-        emit PayPenalty(msg.sender, owner, assets);
+    function _payPenalty(address owner, uint256 assets) internal returns (uint256 amountPenalty) {
+        uint256 penalty = _minPenalty 
+                        + (((_unlockDate[owner] - block.timestamp)
+                            / _epoch)
+                        * _penaltyPerc);
+
+        if (penalty > _maxPenalty) {
+            penalty = _maxPenalty;
+        }
+        amountPenalty = (assets * penalty) / 100;
+
+        // Makes sense????
+        require(amountPenalty <= _assetBalances[owner], "Not enought funds to pay penalty.");
+
+        _totalManagedAssets -= amountPenalty;
+        _assetBalances[owner] -= amountPenalty;
+        assetToken.safeTransfer(msg.sender, amountPenalty);
+        emit PayPenalty(msg.sender, owner, amountPenalty);
+        return amountPenalty;
     }
 
     /* ========== EVENTS ========== */
