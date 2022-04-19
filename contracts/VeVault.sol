@@ -13,7 +13,6 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     /* ========== STATE VARIABLES ========== */
 
     // Asset
-    IERC20 public assetToken;
     address public _assetTokenAddress;
     uint256 public _totalManagedAssets;
     mapping(address => uint256) public _assetBalances;
@@ -22,7 +21,6 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     uint256 private _totalSupply;
     mapping(address => uint256) public _shareBalances;
     mapping(address => uint256) private _unlockDate;
-    // mapping(address => uint256) private _multiplier;
 
     // ERC20 metadata
     string public _name;
@@ -317,7 +315,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     /**
      * Returns the average ve multipler applied to an address
      */
-    function avgVeMult(address owner) internal view returns(uint256) {
+    function avgVeMult(address owner) public view returns(uint256) {
         return _shareBalances[owner] / _assetBalances[owner];
     } 
 
@@ -345,8 +343,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         _totalManagedAssets += assets;
         _assetBalances[receiver] += assets;
         
-        // IERC20 assetToken = IERC20(_assetTokenAddress);
-        assetToken.safeTransferFrom(receiver, address(this), assets);
+        IERC20(_assetTokenAddress).safeTransferFrom(receiver, address(this), assets);
 
         emit Deposit(msg.sender, receiver, assets, shares);
         return shares;
@@ -377,7 +374,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
 
         _totalManagedAssets += assets;
         _assetBalances[receiver] += assets;
-        assetToken.safeTransferFrom(receiver, address(this), assets);
+        IERC20(_assetTokenAddress).safeTransferFrom(receiver, address(this), assets);
 
         emit Deposit(msg.sender, receiver, assets, shares);
         return assets;
@@ -427,6 +424,25 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     */
     function changeUnlockRule(bool flag) external onlyOwner {
         _enforceTime = flag;
+    }
+
+    /**
+     * Change state variabes which controls the penalty system
+     */
+    function changeGracePeriod(uint256 newGracePeriod) external onlyOwner {
+        _gracePeriod = newGracePeriod;
+    }
+    
+    function changeEpoch(uint256 newEpoch) external onlyOwner {
+        _epoch = newEpoch;
+    }
+    
+    function changeMinPenalty(uint256 newMinPenalty) external onlyOwner {
+        _minPenalty = newMinPenalty;
+    }
+    
+    function changeMaxPenalty(uint256 newMaxPenalty) external onlyOwner {
+        _maxPenalty = newMaxPenalty;
     }
 
     // Added to support recovering LP Rewards from other systems such as BAL to be distributed to holders
@@ -493,7 +509,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         _totalManagedAssets -= assets;
         _assetBalances[owner] -= assets;
 
-        assetToken.safeTransfer(receiver, assets);
+        IERC20(_assetTokenAddress).safeTransfer(receiver, assets);
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
         return shares;
     }
@@ -514,7 +530,8 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
 
         _totalManagedAssets -= amountPenalty;
         _assetBalances[owner] -= amountPenalty;
-        assetToken.safeTransfer(msg.sender, amountPenalty);
+
+        IERC20(_assetTokenAddress).safeTransfer(msg.sender, amountPenalty);
         emit PayPenalty(msg.sender, owner, amountPenalty);
         return amountPenalty;
     }
