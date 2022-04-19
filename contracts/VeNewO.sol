@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 // Inheritance
 import "./VeVault.sol";
 
-contract VeNewO is VeVault("veNewO", "veNEO") {
+contract VeNewO is VeVault("veNewO", "veNWO") {
     constructor(
         address owner_,
         address stakingToken_,
