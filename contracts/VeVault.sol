@@ -106,7 +106,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         return assets * veMult(lockTime);
     }
 
-    function convertToShares(uint256 assets) external view override returns(uint256 shares) {
+    function convertToShares(uint256 assets) override external view returns(uint256 shares) {
         return convertToShares(assets, _minLockTime);
     }
     
@@ -311,16 +311,25 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
             - (((lockTime / 86400) ** 2) * 74861590400)
             ) / (1e17);
     }
-
+    
     /**
      * Returns the average ve multipler applied to an address
      */
     function avgVeMult(address owner) public view returns(uint256) {
         return _shareBalances[owner] / _assetBalances[owner];
-    } 
+    }
 
     /* ========== MUTATIVE FUNCTIONS ========== */
 
+    function deposit(uint256 assets, address receiver)
+            override
+            external
+            nonReentrant
+            notPaused 
+            returns(uint256 shares) {
+        return _deposit(assets, receiver, _minLockTime);
+    }
+    
     /**
      * Mints shares Vault shares to receiver by
      * depositing exactly amount of underlying tokens.
@@ -328,29 +337,11 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * Only allow deposits for the caller.
      */
     function deposit(uint256 assets, address receiver, uint256 lockTime)
-            public 
+            external 
             nonReentrant 
             notPaused 
             returns(uint256 shares) {
-        require(assets > 0, "Cannot deposit 0");
-        require(msg.sender == receiver, "Cannot deposit for another address.");
-        
-        shares = assets * veMult(lockTime);
-
-        _updateLock(receiver, lockTime);
-        _mint(receiver, shares);
-
-        _totalManagedAssets += assets;
-        _assetBalances[receiver] += assets;
-        
-        IERC20(_assetTokenAddress).safeTransferFrom(receiver, address(this), assets);
-
-        emit Deposit(msg.sender, receiver, assets, shares);
-        return shares;
-    }
-    
-    function deposit(uint256 assets, address receiver) override external returns(uint256 shares) {
-        return deposit(assets, receiver, _minLockTime);
+        return _deposit(assets, receiver, lockTime);
     }
     
     /**
@@ -360,28 +351,24 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * Only allow deposits for the caller.
      */
     function mint(uint256 shares, address receiver, uint256 lockTime)
-            public
+            external 
             nonReentrant
             notPaused
             returns(uint256 assets) {
-        require(msg.sender == receiver, "Cannot mint for another address.");
-        
         assets = shares / veMult(lockTime);
-        require(assets > 0, "Cannot deposit 0");
-
-        _updateLock(receiver, lockTime);
-        _mint(receiver, shares);
-
-        _totalManagedAssets += assets;
-        _assetBalances[receiver] += assets;
-        IERC20(_assetTokenAddress).safeTransferFrom(receiver, address(this), assets);
-
-        emit Deposit(msg.sender, receiver, assets, shares);
+        _deposit(assets, receiver, lockTime);
         return assets;
     }
 
-    function mint(uint256 shares, address receiver) override external returns(uint256 assets) {
-        return mint(shares, receiver, _minLockTime);
+    function mint(uint256 shares, address receiver)
+            override
+            external
+            nonReentrant
+            notPaused
+            returns(uint256 assets) {
+        assets = shares / veMult(_minLockTime);
+        _deposit(assets, receiver, _minLockTime);
+        return assets;
     }
 
     // Burns shares from owner and sends exactly assets of underlying tokens to receiver.
@@ -454,36 +441,40 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
 
     /* ========== INTERNAL FUNCTIONS ========== */
     
-    function _mint(address receiver, uint256 shares) internal {
-        _totalSupply += shares;
-        _shareBalances[receiver] += shares;
-
-        emit Mint(receiver, shares);
-    }
-
-    function _updateLock(address owner, uint256 lockTime) internal {
+    function _deposit(uint256 assets, address receiver, uint256 lockTime) internal returns (uint256 shares) {
+        require(assets > 0, "Cannot deposit 0");
+        require(msg.sender == receiver, "Cannot deposit for another address.");
         require(lockTime >= _minLockTime, "Lock time is less than min.");
         require(lockTime <= _maxLockTime, "Lock time is more than max.");
 
+        // Update lockTime
         uint256 unlockTime = block.timestamp + lockTime;
         if (_unlockDate[owner] < unlockTime) {
             _unlockDate[owner] = unlockTime;
         } else {
             _unlockDate[owner] += lockTime;
         }
+        
+        shares = assets * veMult(lockTime);
+        
+        // Mint ve
+        _totalSupply += shares;
+        _shareBalances[receiver] += shares;
+        emit Mint(receiver, shares);
+
+        // Update assets
+        _totalManagedAssets += assets;
+        _assetBalances[receiver] += assets;
+        
+        IERC20(_assetTokenAddress).safeTransferFrom(receiver, address(this), assets);
+        emit Deposit(msg.sender, receiver, assets, shares);
+        return shares;
     }
     
-    function _burn(address owner, uint256 shares) internal {
-        require(_shareBalances[owner] >= shares, "Not enought shares to burn.");
-
-        _totalSupply -= shares;
-        _shareBalances[owner] -= shares;
-        emit Burn(owner, shares);
-    }
-
     function _withdraw(uint256 assets, address receiver, address owner) internal returns(uint256 shares) {
         require(owner != address(0), "Cannot withdraw for null address");
         require(_assetBalances[owner] >= assets, "Address has not enought assets.");
+        require(_shareBalances[owner] >= shares, "Not enought shares to burn.");
         if (msg.sender != owner) {
             require(receiver == owner, "Must withdraw to owner address.");
             // Must check what happens for negative value in the block.timestamp
@@ -504,8 +495,12 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         shares = assets * avgVeMult(owner);
         assets -= amountPenalty;
 
-        _burn(owner, shares);
+        // Burn ve tokens
+        _totalSupply -= shares;
+        _shareBalances[owner] -= shares;
+        emit Burn(owner, shares);
 
+        // Withdraw assets
         _totalManagedAssets -= assets;
         _assetBalances[owner] -= assets;
 
