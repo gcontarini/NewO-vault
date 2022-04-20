@@ -120,12 +120,6 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
         return _shareBalances[owner];
     }
 
-    /** ASK GABRIEL (WHY THERE ARE TWO OF THESE?) ==> HERE COMES THE LOGIC FOR CONVERTING LP INTO SHARES */
-
-    // SHOW I CALL THE MULTIPLIER EVERYTIME? I THINK THATS THE SIMPLEST WAY!
-
-    // complience with ERC4626 interface
-
     function convertToShares(uint256 assets) external view override returns(uint256 shares) {
         return assets * getMultiplier();
     }
@@ -159,16 +153,12 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
     }
 
     /**
-     * @dev Returns the name of the token.
+     * @dev Returns the name, symbol and decimals of the token.
      */
     function name() public view virtual returns (string memory) {
         return _name;
     }
 
-    /**
-     * @dev Returns the symbol of the token, usually a shorter version of the
-     * name.
-     */
     function symbol() public view virtual returns (string memory) {
         return _symbol;
     }
@@ -192,7 +182,6 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
     }
 
     /* ============== REWARD FUNCTIONS ====================== */
-
 
     function lastTimeRewardApplicable() public view returns (uint256) {
         return block.timestamp < periodFinish ? block.timestamp : periodFinish;
@@ -219,7 +208,7 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
 
     /* =================  GET EXTERNAL INFO  =================== */
 
-    // get newo amount hold by the user on the pool
+    // Get NEWO amount staked on the LP by msg.sender
     function getNewoShare() public view returns (uint256) {
         uint112 reserve0;
         uint112 reserve1;
@@ -235,6 +224,7 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
     function getNewoLocked() public view returns(uint256) {
         return IVeVault(veTokenVault).assetBalanceOf(msg.sender);
     }
+
     /* ========== MUTATIVE FUNCTIONS ========== */
     
     function deposit(uint256 assets, address receiver) external nonReentrant notPaused updateReward(msg.sender) returns (uint256 shares) {
@@ -266,7 +256,6 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
     }
 
     function withdraw(uint256 assets, address receiver, address owner) public nonReentrant updateReward(msg.sender) returns(uint256 shares){
-        
         // ERC4626 compliance (does it even make sense?)
         receiver = owner = msg.sender;
         uint256 bonusMultiplier = 1;
@@ -275,23 +264,22 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
         if(getNewoShare() >= getNewoLocked())
             bonusMultiplier = getMultiplier();
             
-        // ADD LP TOKENS BY AMOUNT
+        // ADD LP TOKENS (assets)
         // IS THIS SHIT GOING TO REVERT IF ASSETS > _assetBalances[receiver]? BECAUSE IT SHOULD
         _totalManagedAssets = _totalManagedAssets - assets;
         _assetBalances[receiver] = _assetBalances[receiver] - assets;
         
-        // ADD SHARES BY AMOUNT * MULTIPLIER
+        // ADD SHARES
         _totalSupply = _totalSupply - assets * bonusMultiplier;
         _shareBalances[receiver] = _shareBalances[receiver] - assets * bonusMultiplier;
 
         IERC20(_assetTokenAddress).safeTransfer(receiver, assets);
 
-        // ERC4626 compliance has to emit withdraw event (does this arguments make sense?)
+        // ERC4626 compliance has to emit withdraw event (does this arguments make any sense?)
         emit Withdraw(receiver, receiver, receiver, assets, (assets * bonusMultiplier));
 
         // ERC4626 compliance. It has to return shares burned
         return assets * bonusMultiplier;
-
     }
 
     function getReward() public nonReentrant updateReward(msg.sender) {
