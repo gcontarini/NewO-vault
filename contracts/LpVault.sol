@@ -125,57 +125,31 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
     // SHOW I CALL THE MULTIPLIER EVERYTIME? I THINK THATS THE SIMPLEST WAY!
 
     // complience with ERC4626 interface
-    
-    // function convertToShares(uint256 assets, uint256 lockTime) public pure returns(uint256 shares) {
-    //     return assets * veMult(lockTime);
-    // }
 
-    // function convertToShares(uint256 assets) external view override returns(uint256 shares) {
-    //     return convertToShares(assets, _minLockTime);
-    // }
+    function convertToShares(uint256 assets) external view override returns(uint256 shares) {
+        return assets * getMultiplier();
+    }
 
-    // function convertToAssets(uint256 shares, uint256 lockTime) public pure returns(uint256 assets) {
-    //     return shares / veMult(lockTime);
-    // }
+    function convertToAssets(uint256 shares) external view override returns(uint256 assets) {
+        return shares / getMultiplier();
+    }
 
-    // function convertToAssets(uint256 shares) external view override returns(uint256 assets) {
-    //     return convertToAssets(shares, _minLockTime);
-    // }
+    function previewDeposit(uint256 assets) external view override returns(uint256 shares) {
+        return assets * getMultiplier();
+    }
 
-    // function previewDeposit(uint256 assets, uint256 lockTime) public pure returns(uint256 shares) {
-    //     return convertToShares(assets, lockTime);
-    // }
+    function previewMint(uint256 shares) external view override returns(uint256 assets) {
+         return shares / getMultiplier();
+    }
 
-    // function previewDeposit(uint256 assets) external view override returns(uint256 shares) {
-    //     return previewDeposit(assets, _minLockTime);
-    // }
+    function previewWithdraw(uint256 assets) external view override returns(uint256 shares) {
+        return assets / getMultiplier();
+    }
 
-    // function previewMint(uint256 shares, uint256 lockTime) public pure returns(uint256 assets) {
-    //     return shares / veMult(lockTime);
-    // }
+    function previewRedeem(uint256 shares) external view override returns(uint256 assets) {
+        return shares / getMultiplier();
+    }
 
-    // function previewMint(uint256 shares) external view override returns(uint256 assets) {
-    //     return previewMint(shares, _minLockTime);
-    // }
-
-    // function previewWithdraw(uint256 assets, uint256 lockTime) public pure returns(uint256 shares) {
-    //     return assets / veMult(lockTime);
-    // }
-
-    // function previewWithdraw(uint256 assets) external view override returns(uint256 shares) {
-    //     return previewWithdraw(assets, _minLockTime);
-    // }
-
-    // function previewRedeem(uint256 shares, uint256 lockTime) public pure returns(uint256 assets) {
-    //     return shares / veMult(lockTime);
-    // }
-
-    // function previewRedeem(uint256 shares) external view override returns(uint256 assets) {
-    //     return previewRedeem(shares, _minLockTime);
-    // }
-
-
-    //allowance is really needed in this case? cause it's is not on the ERC4626 interface
     /**
      * NEWOLpVault tokens are not transferable.
      * Always returns zero.
@@ -263,65 +237,61 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
     }
     /* ========== MUTATIVE FUNCTIONS ========== */
     
-    function deposit(uint256 amount) external nonReentrant notPaused updateReward(msg.sender) {
-        require(amount > 0, "Cannot stake 0");
+    function deposit(uint256 assets, address receiver) external nonReentrant notPaused updateReward(msg.sender) returns (uint256 shares) {
+        require(assets > 0, "Cannot stake 0");
+
+        // ERC4626 compliance (does it even make sense?)
+        receiver = msg.sender;
+
         // IF MSG.SENDER CAN GET THE BONUS
-        if(getNewoShare() >= getNewoLocked()) {
-            
-            // ADD LP TOKENS BY AMOUNT
-            _totalManagedAssets = _totalManagedAssets + amount;
-            _assetBalances[msg.sender] = _assetBalances[msg.sender] + amount;
-            
-            // ADD SHARES BY AMOUNT * MULTIPLIER
-            _totalSupply = _totalSupply + amount * getMultiplier();
-            _shareBalances[msg.sender] = _shareBalances[msg.sender] + amount * getMultiplier();
+        uint256 bonusMultiplier = 1;
+        if(getNewoShare() >= getNewoLocked())
+            bonusMultiplier = getMultiplier();
+        
+        // ADD LP TOKENS BY AMOUNT
+        _totalManagedAssets = _totalManagedAssets + assets;
+        _assetBalances[receiver] = _assetBalances[receiver] + assets;
+        
+        // ADD SHARES BY AMOUNT * MULTIPLIER
+        _totalSupply = _totalSupply + assets * bonusMultiplier;
+        _shareBalances[receiver] = _shareBalances[receiver] + assets * bonusMultiplier;
 
-            IERC20(_assetTokenAddress).safeTransferFrom(msg.sender, address(this), amount);
-            emit Staked(msg.sender, amount);
-        }
-        else {
+        IERC20(_assetTokenAddress).safeTransferFrom(receiver, address(this), assets);
 
+        // ERC4626 compliance has to emit deposit event
+        emit Deposit(msg.sender, address(this), assets, (assets * bonusMultiplier));
 
-            // ADD LP TOKENS
-            _totalManagedAssets = _totalManagedAssets + amount;
-            _assetBalances[msg.sender] = _assetBalances[msg.sender] + amount;
-
-            // ADD SHARES WITHOUT BONUS
-            _totalSupply = _totalSupply + amount;
-            _shareBalances[msg.sender] = _shareBalances[msg.sender] + amount;
-
-            IERC20(_assetTokenAddress).safeTransferFrom(msg.sender, address(this), amount);
-            emit Staked(msg.sender, amount);
-        }
+        // ERC4626 compliance. It has to return shares minted
+        return assets * bonusMultiplier;
     }
 
-    function withdraw(uint256 amount) public nonReentrant updateReward(msg.sender) {
-        require(amount > 0, "Cannot withdraw 0");
-        if(getNewoShare() >= getNewoLocked()) {
+    function withdraw(uint256 assets, address receiver, address owner) public nonReentrant updateReward(msg.sender) returns(uint256 shares){
+        
+        // ERC4626 compliance (does it even make sense?)
+        receiver = owner = msg.sender;
+        uint256 bonusMultiplier = 1;
+        
+        require(assets > 0, "Cannot withdraw 0");
+        if(getNewoShare() >= getNewoLocked())
+            bonusMultiplier = getMultiplier();
             
-            // WITHDRAW LP TOKENS BY AMOUNT
-            _totalManagedAssets = _totalManagedAssets - amount;
-            _assetBalances[msg.sender] = _assetBalances[msg.sender] - amount;
-            
-            // REMOVE SHARES BY AMOUNT * MULTIPLIER
-            _totalSupply = _totalSupply - amount * getMultiplier();
-            _shareBalances[msg.sender] = _shareBalances[msg.sender] - amount * getMultiplier();
+        // ADD LP TOKENS BY AMOUNT
+        // IS THIS SHIT GOING TO REVERT IF ASSETS > _assetBalances[receiver]? BECAUSE IT SHOULD
+        _totalManagedAssets = _totalManagedAssets - assets;
+        _assetBalances[receiver] = _assetBalances[receiver] - assets;
+        
+        // ADD SHARES BY AMOUNT * MULTIPLIER
+        _totalSupply = _totalSupply - assets * bonusMultiplier;
+        _shareBalances[receiver] = _shareBalances[receiver] - assets * bonusMultiplier;
 
-            IERC20(_assetTokenAddress).safeTransfer(msg.sender, amount);
-            emit Withdrawn(msg.sender, amount);
-        }
-        else {
-            // WITHDRAW LP TOKENS BY AMOUNT
-            _totalManagedAssets = _totalManagedAssets - amount;
-            _assetBalances[msg.sender] = _assetBalances[msg.sender] - amount;
-            
-            // REMOVE SHARES BY AMOUNT * MULTIPLIER
-            _totalSupply = _totalSupply - amount;
-            _shareBalances[msg.sender] = _shareBalances[msg.sender] - amount;
-            
-            IERC20(_assetTokenAddress).safeTransfer(msg.sender, amount);
-            emit Withdrawn(msg.sender, amount);
-        }
+        IERC20(_assetTokenAddress).safeTransfer(receiver, assets);
+
+        // ERC4626 compliance has to emit withdraw event (does this arguments make sense?)
+        emit Withdraw(receiver, receiver, receiver, assets, (assets * bonusMultiplier));
+
+        // ERC4626 compliance. It has to return shares burned
+        return assets * bonusMultiplier;
+
     }
 
     function getReward() public nonReentrant updateReward(msg.sender) {
@@ -334,7 +304,7 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
     }
 
     function exit() external {
-        withdraw(_shareBalances[msg.sender]);
+        withdraw(_assetBalances[msg.sender], msg.sender, msg.sender);
         getReward();
     }
 
