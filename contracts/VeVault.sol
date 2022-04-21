@@ -37,6 +37,15 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     uint256 internal _minPenalty;
     uint256 internal _penaltyPerc;
     
+    // Constants
+    uint256 private SEC_IN_DAY = 86400;
+    uint256 private PRECISION = 100;
+    // This value should be 1e17 but we are using 100 as precision
+    uint256 private MULT_FACTOR = 1e15;
+    uint256 private COEFF_1 = 154143856;
+    uint256 private COEFF_2 = 74861590400;
+    uint256 private COEFF_3 = 116304927000000 * 9002656460000000;
+    
     /* ========== CONSTRUCTOR ========== */
 
     constructor(string memory name_, string memory symbol_) {
@@ -71,14 +80,14 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * used for the Vault for accounting, 
      * depositing, and withdrawing.
      */
-    function asset() external view override returns(address assetTokenAddress) {
+    function asset() external view override returns (address assetTokenAddress) {
         return _assetTokenAddress;
     }
 
     /**
      * Total amount of the underlying asset that is “managed” by Vault.
      */
-    function totalAssets() external view override returns(uint256 totalManagedAssets) {
+    function totalAssets() external view override returns (uint256 totalManagedAssets) {
         return _totalManagedAssets;
     }
 
@@ -102,11 +111,11 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * of assets provided, in an ideal scenario where all the conditions are met.
      * Alwalys return the amount of veToken for the min amount of time locked.
      */
-    function convertToShares(uint256 assets, uint256 lockTime) public pure returns(uint256 shares) {
-        return assets * veMult(lockTime);
+    function convertToShares(uint256 assets, uint256 lockTime) public view returns (uint256 shares) {
+        return assets * veMult(lockTime) / PRECISION;
     }
 
-    function convertToShares(uint256 assets) override external view returns(uint256 shares) {
+    function convertToShares(uint256 assets) override external view returns (uint256 shares) {
         return convertToShares(assets, _minLockTime);
     }
     
@@ -115,11 +124,11 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * The amount of assets that the Vault would exchange for the amount 
      * of shares provided, in an ideal scenario where all the conditions are met.
      */
-    function convertToAssets(uint256 shares, uint256 lockTime) public pure returns(uint256 assets) {
-        return shares / veMult(lockTime);
+    function convertToAssets(uint256 shares, uint256 lockTime) public view returns (uint256 assets) {
+        return shares * PRECISION / veMult(lockTime);
     }
 
-    function convertToAssets(uint256 shares) external view override returns(uint256 assets) {
+    function convertToAssets(uint256 shares) override external view returns (uint256 assets) {
         return convertToAssets(shares, _minLockTime);
     }
     
@@ -127,7 +136,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * Maximum amount of the underlying asset that can be deposited into
      * the Vault for the receiver, through a deposit call.
      */
-    function maxDeposit(address) external pure override returns(uint256 maxAssets) {
+    function maxDeposit(address) override external pure returns (uint256 maxAssets) {
         return 2 ** 256 - 1;
     }
 
@@ -136,11 +145,11 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * Allows an on-chain or off-chain user to simulate the effects of
      * their deposit at the current block, given current on-chain conditions.
      */
-    function previewDeposit(uint256 assets, uint256 lockTime) public pure returns(uint256 shares) {
+    function previewDeposit(uint256 assets, uint256 lockTime) public view returns (uint256 shares) {
         return convertToShares(assets, lockTime);
     }
 
-    function previewDeposit(uint256 assets) external view override returns(uint256 shares) {
+    function previewDeposit(uint256 assets) override external view returns (uint256 shares) {
         return previewDeposit(assets, _minLockTime);
     }
     
@@ -148,7 +157,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * Maximum amount of shares that can be minted from the Vault for the receiver,
      * through a mint call.
      */
-    function maxMint(address) external pure override returns(uint256 maxShares) {
+    function maxMint(address) override external pure returns (uint256 maxShares) {
         return 2 ** 256 - 1;
     }
 
@@ -157,11 +166,11 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * Allows an on-chain or off-chain user to simulate the effects of their
      * mint at the current block, given current on-chain conditions.
      */
-    function previewMint(uint256 shares, uint256 lockTime) public pure returns(uint256 assets) {
-        return shares / veMult(lockTime);
+    function previewMint(uint256 shares, uint256 lockTime) public view returns (uint256 assets) {
+        return convertToAssets(shares, lockTime);
     }
 
-    function previewMint(uint256 shares) external view override returns(uint256 assets) {
+    function previewMint(uint256 shares) override external view returns (uint256 assets) {
         return previewMint(shares, _minLockTime);
     }
     
@@ -169,7 +178,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * Maximum amount of the underlying asset that can be withdrawn from the
      * owner balance in the Vault, through a withdraw call.
      */
-    function maxWithdraw(address owner) external view override returns(uint256 maxAssets) {
+    function maxWithdraw(address owner) override external view returns (uint256 maxAssets) {
         if (paused) {
             return 0;
         }
@@ -180,11 +189,11 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * Allows an on-chain or off-chain user to simulate the effects of
      * their withdrawal at the current block, given current on-chain conditions.
      */
-    function previewWithdraw(uint256 assets, uint256 lockTime) public pure returns(uint256 shares) {
-        return assets / veMult(lockTime);
+    function previewWithdraw(uint256 assets, uint256 lockTime) public view returns (uint256 shares) {
+        return convertToShares(assets, lockTime);
     }
 
-    function previewWithdraw(uint256 assets) external view override returns(uint256 shares) {
+    function previewWithdraw(uint256 assets) override external view returns (uint256 shares) {
         return previewWithdraw(assets, _minLockTime);
     }
     
@@ -192,7 +201,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * Maximum amount of Vault shares that can be redeemed from the owner
      * balance in the Vault, through a redeem call.
      */
-    function maxRedeem(address owner) external view override returns(uint256 maxShares) {
+    function maxRedeem(address owner) override external view returns (uint256 maxShares) {
         if (paused) {
             return 0;
         }
@@ -203,11 +212,11 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * Allows an on-chain or off-chain user to simulate the effects of their
      * redeemption at the current block, given current on-chain conditions.
      */
-    function previewRedeem(uint256 shares, uint256 lockTime) public pure returns(uint256 assets) {
-        return shares / veMult(lockTime);
+    function previewRedeem(uint256 shares, uint256 lockTime) public view returns (uint256 assets) {
+        return convertToAssets(shares, lockTime);
     }
 
-    function previewRedeem(uint256 shares) external view override returns(uint256 assets) {
+    function previewRedeem(uint256 shares) override external view returns (uint256 assets) {
         return previewRedeem(shares, _minLockTime);
     }
     
@@ -215,28 +224,28 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * Ve tokens are not transferable.
      * Always returns zero.
      */
-    function allowance(address, address) external pure override returns (uint256) {
+    function allowance(address, address) override external pure returns (uint256) {
         return 0;
     }
 
     /**
      * Total assets deposited by address
      */
-    function assetBalanceOf(address account) external view returns(uint256) {
+    function assetBalanceOf(address account) external view returns (uint256) {
         return _assetBalances[account];
     }
 
     /**
      * Unlock date for account
      */
-    function unlockDate(address account) external view returns(uint256) {
+    function unlockDate(address account) external view returns (uint256) {
         return _unlockDate[account];
     }
 
     /**
      * How long is the grace period in seconds
      */
-    function gracePeriod() external view returns(uint256) {
+    function gracePeriod() external view returns (uint256) {
         return _gracePeriod;
     }
 
@@ -244,28 +253,28 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * Percentage paid to caller which withdraw veTokens
      * in name of account.
      */
-    function penaltyPercentage() external view returns(uint256) {
+    function penaltyPercentage() external view returns (uint256) {
         return _penaltyPerc;
     }
 
     /**
      * Minimum lock time in seconds
      */
-     function minLockTime() external view returns(uint256) {
+     function minLockTime() external view returns (uint256) {
          return _minLockTime;
      }
     
     /**
      * Maximum lock time in seconds
      */
-     function maxLockTime() external view returns(uint256) {
+     function maxLockTime() external view returns (uint256) {
          return _maxLockTime;
      }
 
      /**
      * @dev Returns the name of the token.
      */
-    function name() public view virtual returns (string memory) {
+    function name() public view returns (string memory) {
         return _name;
     }
 
@@ -273,11 +282,11 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * @dev Returns the symbol of the token, usually a shorter version of the
      * name.
      */
-    function symbol() public view virtual returns (string memory) {
+    function symbol() public view returns (string memory) {
         return _symbol;
     }
 
-    function decimals() public view virtual returns (uint8) {
+    function decimals() public pure returns (uint8) {
         return 18;
     }
     
@@ -302,21 +311,21 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * Calculate the multipler applied to
      * the amount of tokens staked.
      * lockTime: time in seconds
+     * Granularity is lost with lockTime between days
      */
-    function veMult(uint256 lockTime) internal pure returns (uint256) {
-        // seconds in a day 86400
+    function veMult(uint256 lockTime) internal view returns (uint256) {
         return (
-            (((lockTime / 86400) ** 3) * 154143856)
-            + ((lockTime / 86400) * 116304927000000 * 9002656460000000)
-            - (((lockTime / 86400) ** 2) * 74861590400)
-            ) / (1e17);
+            (((lockTime / SEC_IN_DAY) ** 3) * COEFF_1)
+            + ((lockTime / SEC_IN_DAY) * COEFF_3)
+            - (((lockTime / SEC_IN_DAY) ** 2) * COEFF_2)
+            ) / MULT_FACTOR;
     }
     
     /**
      * Returns the average ve multipler applied to an address
      */
-    function avgVeMult(address owner) public view returns(uint256) {
-        return _shareBalances[owner] / _assetBalances[owner];
+    function avgVeMult(address owner) public view returns (uint256) {
+        return _shareBalances[owner] * PRECISION / _assetBalances[owner];
     }
 
     /* ========== MUTATIVE FUNCTIONS ========== */
@@ -326,7 +335,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
             external
             nonReentrant
             notPaused 
-            returns(uint256 shares) {
+            returns (uint256 shares) {
         return _deposit(assets, receiver, _minLockTime);
     }
     
@@ -340,7 +349,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
             external 
             nonReentrant 
             notPaused 
-            returns(uint256 shares) {
+            returns (uint256 shares) {
         return _deposit(assets, receiver, lockTime);
     }
     
@@ -354,8 +363,8 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
             external 
             nonReentrant
             notPaused
-            returns(uint256 assets) {
-        assets = shares / veMult(lockTime);
+            returns (uint256 assets) {
+        assets = convertToAssets(shares, lockTime);
         _deposit(assets, receiver, lockTime);
         return assets;
     }
@@ -365,30 +374,30 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
             external
             nonReentrant
             notPaused
-            returns(uint256 assets) {
-        assets = shares / veMult(_minLockTime);
+            returns (uint256 assets) {
+        assets = convertToAssets(shares, _minLockTime);
         _deposit(assets, receiver, _minLockTime);
         return assets;
     }
 
     // Burns shares from owner and sends exactly assets of underlying tokens to receiver.
     function withdraw(uint256 assets, address receiver, address owner)
+            override
             external 
             nonReentrant 
             notPaused
-            override
-            returns(uint256 shares) {
+            returns (uint256 shares) {
         return _withdraw(assets, receiver, owner);
     }
 
     // Burns exactly shares from owner and sends assets of underlying tokens to receiver.
     function redeem(uint256 shares, address receiver, address owner)
+            override
             external 
             nonReentrant 
             notPaused
-            override
-            returns(uint256 assets) {
-        assets = shares / avgVeMult(owner);
+            returns (uint256 assets) {
+        assets = (shares * PRECISION / avgVeMult(owner)) / PRECISION;
         // This is for testing only
         uint256 testShares = _withdraw(assets, receiver, owner);
         require(testShares == shares, "DEBUG ONLY");
@@ -401,7 +410,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
             external 
             nonReentrant 
             notPaused
-            returns(uint256 shares) {
+            returns (uint256 shares) {
         return _withdraw(_assetBalances[msg.sender], msg.sender, msg.sender);
     }
 
@@ -455,7 +464,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
             _unlockDate[owner] += lockTime;
         }
         
-        shares = assets * veMult(lockTime);
+        shares = convertToShares(assets, lockTime);
         
         // Mint ve
         _totalSupply += shares;
@@ -471,7 +480,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         return shares;
     }
     
-    function _withdraw(uint256 assets, address receiver, address owner) internal returns(uint256 shares) {
+    function _withdraw(uint256 assets, address receiver, address owner) internal returns (uint256 shares) {
         require(owner != address(0), "Cannot withdraw for null address");
         require(_assetBalances[owner] >= assets, "Address has not enought assets.");
         require(_shareBalances[owner] >= shares, "Not enought shares to burn.");
@@ -492,7 +501,8 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
             amountPenalty = _payPenalty(owner, assets);
         }
 
-        shares = assets * avgVeMult(owner);
+        // This can be tricker, test it carefully
+        shares = assets * avgVeMult(owner) / PRECISION;
         assets -= amountPenalty;
 
         // Burn ve tokens

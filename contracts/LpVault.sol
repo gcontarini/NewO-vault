@@ -227,7 +227,7 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
 
     /* ========== MUTATIVE FUNCTIONS ========== */
     
-    function deposit(uint256 assets, address receiver) external nonReentrant notPaused updateReward(msg.sender) returns (uint256 shares) {
+    function deposit(uint256 assets, address receiver) override external nonReentrant notPaused updateReward(msg.sender) returns (uint256 shares) {
         require(assets > 0, "Cannot stake 0");
 
         // ERC4626 compliance (does it even make sense?)
@@ -255,7 +255,7 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
         return assets * bonusMultiplier;
     }
 
-    function withdraw(uint256 assets, address receiver, address owner) public nonReentrant updateReward(msg.sender) returns(uint256 shares){
+    function withdraw(uint256 assets, address receiver, address owner) override public nonReentrant updateReward(msg.sender) returns(uint256 shares){
         // ERC4626 compliance (does it even make sense?)
         receiver = owner = msg.sender;
         uint256 bonusMultiplier = 1;
