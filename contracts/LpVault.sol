@@ -204,7 +204,7 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
 
     /* =================  GET EXTERNAL INFO  =================== */
 
-    // Get NEWO amount staked on the LP by msg.sender
+    // Get NEWO amount staked on the LP by caller
     function getNewoShare() public view returns (uint256) {
         uint112 reserve0;
         uint112 reserve1;
@@ -252,17 +252,17 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
     function withdraw(uint256 assets, address receiver, address owner) override public nonReentrant updateReward(msg.sender) returns(uint256 shares){
         require(assets > 0, "Cannot withdraw 0");
         require(owner == msg.sender, "Caller must be the owner");
+        require(assets <= _assetBalances[owner], "Owner must have enought assets");
         
         shares = assets;
         if(getNewoShare() >= getNewoLocked())
             shares *= getMultiplier();
         
-        // ADD LP TOKENS (assets)
-        // IS THIS SHIT GOING TO REVERT IF ASSETS > _assetBalances[receiver]? BECAUSE IT SHOULD
+        // Remove LP Tokens (assets)
         _totalManagedAssets = _totalManagedAssets - assets;
         _assetBalances[owner] = _assetBalances[owner] - assets;
         
-        // ADD SHARES
+        // Remove shares
         _totalSupply = _totalSupply - shares;
         _shareBalances[owner] = _shareBalances[owner] - shares;
 
