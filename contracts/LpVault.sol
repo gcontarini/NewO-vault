@@ -221,42 +221,82 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
         return IVeVault(veTokenVault).assetBalanceOf(msg.sender);
     }
 
-    /* ========== MUTATIVE FUNCTIONS ========== */
-    
-    function deposit(uint256 assets, address receiver) override external nonReentrant notPaused updateReward(msg.sender) returns (uint256 shares) {
-        require(assets > 0, "Cannot stake 0");
-        require(receiver == msg.sender, "Receiver must be caller");
-
-        // IF MSG.SENDER CAN GET THE BONUS
-        uint256 bonusMultiplier = 1;
-        if(getNewoShare() >= getNewoLocked())
-            bonusMultiplier = getMultiplier();
-        
-        // ADD LP TOKENS BY AMOUNT
-        _totalManagedAssets = _totalManagedAssets + assets;
-        _assetBalances[receiver] = _assetBalances[receiver] + assets;
-        
-        // ADD SHARES BY AMOUNT * MULTIPLIER
-        _totalSupply = _totalSupply + assets * bonusMultiplier;
-        _shareBalances[receiver] = _shareBalances[receiver] + assets * bonusMultiplier;
-
-        IERC20(_assetTokenAddress).safeTransferFrom(receiver, address(this), assets);
-
-        // ERC4626 compliance has to emit deposit event
-        emit Deposit(msg.sender, address(this), assets, (assets * bonusMultiplier));
-
-        // ERC4626 compliance. It has to return shares minted
-        return assets * bonusMultiplier;
+    function avgMult(address owner) internal view returns(uint256) {
+        return _shareBalances[owner] / _assetBalances[owner];
     }
 
-    function withdraw(uint256 assets, address receiver, address owner) override public nonReentrant updateReward(msg.sender) returns(uint256 shares){
+    /* ========== MUTATIVE FUNCTIONS ========== */
+    
+    function deposit(uint256 assets, address receiver)
+            override
+            external
+            nonReentrant
+            notPaused
+            updateReward(receiver)
+            returns (uint256 shares) {
+        return _deposit(assets, receiver);
+    }
+    
+    function mint(uint256 shares, address receiver)
+            override
+            external
+            nonReentrant
+            notPaused
+            updateReward(receiver)
+            returns (uint256 assets) {
+        
+        // Grant boost
+        assets = shares;
+        if(getNewoShare() >= getNewoLocked())
+            assets /= getMultiplier();
+
+        _deposit(assets, receiver);
+        return assets;
+    }
+
+    function withdraw(uint256 assets, address receiver, address owner)
+            override
+            external
+            nonReentrant
+            updateReward(owner)
+            returns(uint256 shares) {
+       return _withdraw(assets, receiver, owner); 
+    }
+
+    function redeem(uint256 shares, address receiver, address owner)
+            override
+            external 
+            nonReentrant 
+            updateReward(owner)
+            returns (uint256 assets) {
+        assets = shares / avgMult(owner);
+        _withdraw(assets, receiver, owner);
+        return assets;
+    }
+
+    function getReward() public nonReentrant updateReward(msg.sender) {
+        uint256 reward = rewards[msg.sender];
+        if (reward > 0) {
+            rewards[msg.sender] = 0;
+            IERC20(rewardsToken).safeTransfer(msg.sender, reward);
+            emit RewardPaid(msg.sender, reward);
+        }
+    }
+
+    // Withdraw all
+    function exit() external nonReentrant updateReward(msg.sender) {
+        _withdraw(_assetBalances[msg.sender], msg.sender, msg.sender);
+        getReward();
+    }
+
+    /* ========== RESTRICTED FUNCTIONS ========== */
+    
+    function _withdraw(uint256 assets, address receiver, address owner) internal returns(uint256 shares) {
         require(assets > 0, "Cannot withdraw 0");
         require(owner == msg.sender, "Caller must be the owner");
         require(assets <= _assetBalances[owner], "Owner must have enought assets");
         
-        shares = assets;
-        if(getNewoShare() >= getNewoLocked())
-            shares *= getMultiplier();
+        shares = assets * avgMult(owner);
         
         // Remove LP Tokens (assets)
         _totalManagedAssets = _totalManagedAssets - assets;
@@ -274,22 +314,30 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
         // ERC4626 compliance. It has to return shares burned
         return shares;
     }
+    
+    function _deposit(uint256 assets, address receiver) internal returns (uint256 shares) {
+        require(assets > 0, "Cannot stake 0");
+        require(receiver == msg.sender, "Receiver must be caller");
 
-    function getReward() public nonReentrant updateReward(msg.sender) {
-        uint256 reward = rewards[msg.sender];
-        if (reward > 0) {
-            rewards[msg.sender] = 0;
-            IERC20(rewardsToken).safeTransfer(msg.sender, reward);
-            emit RewardPaid(msg.sender, reward);
-        }
+        // Grant boost
+        shares = assets; 
+        if(getNewoShare() >= getNewoLocked())
+            shares *= getMultiplier();
+        
+        // Lp tokens
+        _totalManagedAssets = _totalManagedAssets + assets;
+        _assetBalances[receiver] = _assetBalances[receiver] + assets;
+        
+        // Vault shares
+        _totalSupply = _totalSupply + shares;
+        _shareBalances[receiver] = _shareBalances[receiver] + shares;
+
+        IERC20(_assetTokenAddress).safeTransferFrom(msg.sender, address(this), assets);
+        // ERC4626 compliance has to emit deposit event
+        emit Deposit(msg.sender, address(this), assets, shares);
+        // ERC4626 compliance. It has to return shares minted
+        return shares;
     }
-
-    function exit() external {
-        withdraw(_assetBalances[msg.sender], msg.sender, msg.sender);
-        getReward();
-    }
-
-    /* ========== RESTRICTED FUNCTIONS ========== */
 
     function notifyRewardAmount(uint256 reward) external override onlyRewardsDistribution updateReward(address(0)) {
         if (block.timestamp >= periodFinish) {
