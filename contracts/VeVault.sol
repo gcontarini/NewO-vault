@@ -38,13 +38,13 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     uint256 internal _penaltyPerc;
     
     // Constants
-    uint256 private SEC_IN_DAY = 86400;
-    uint256 private PRECISION = 100;
+    uint256 private constant SEC_IN_DAY = 86400;
+    uint256 private constant PRECISION = 100;
     // This value should be 1e17 but we are using 100 as precision
-    uint256 private MULT_FACTOR = 1e15;
-    uint256 private COEFF_1 = 154143856;
-    uint256 private COEFF_2 = 74861590400;
-    uint256 private COEFF_3 = 116304927000000 * 9002656460000000;
+    uint256 private constant MULT_FACTOR = 1e15;
+    uint256 private constant COEFF_1 = 154143856;
+    uint256 private constant COEFF_2 = 74861590400;
+    uint256 private constant COEFF_3 = 116304927000000 * 9002656460000000;
     
     /* ========== CONSTRUCTOR ========== */
 
@@ -111,7 +111,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * of assets provided, in an ideal scenario where all the conditions are met.
      * Alwalys return the amount of veToken for the min amount of time locked.
      */
-    function convertToShares(uint256 assets, uint256 lockTime) public view returns (uint256 shares) {
+    function convertToShares(uint256 assets, uint256 lockTime) public pure returns (uint256 shares) {
         return assets * veMult(lockTime) / PRECISION;
     }
 
@@ -124,7 +124,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * The amount of assets that the Vault would exchange for the amount 
      * of shares provided, in an ideal scenario where all the conditions are met.
      */
-    function convertToAssets(uint256 shares, uint256 lockTime) public view returns (uint256 assets) {
+    function convertToAssets(uint256 shares, uint256 lockTime) public pure returns (uint256 assets) {
         return shares * PRECISION / veMult(lockTime);
     }
 
@@ -145,7 +145,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * Allows an on-chain or off-chain user to simulate the effects of
      * their deposit at the current block, given current on-chain conditions.
      */
-    function previewDeposit(uint256 assets, uint256 lockTime) public view returns (uint256 shares) {
+    function previewDeposit(uint256 assets, uint256 lockTime) public pure returns (uint256 shares) {
         return convertToShares(assets, lockTime);
     }
 
@@ -166,7 +166,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * Allows an on-chain or off-chain user to simulate the effects of their
      * mint at the current block, given current on-chain conditions.
      */
-    function previewMint(uint256 shares, uint256 lockTime) public view returns (uint256 assets) {
+    function previewMint(uint256 shares, uint256 lockTime) public pure returns (uint256 assets) {
         return convertToAssets(shares, lockTime);
     }
 
@@ -189,7 +189,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * Allows an on-chain or off-chain user to simulate the effects of
      * their withdrawal at the current block, given current on-chain conditions.
      */
-    function previewWithdraw(uint256 assets, uint256 lockTime) public view returns (uint256 shares) {
+    function previewWithdraw(uint256 assets, uint256 lockTime) public pure returns (uint256 shares) {
         return convertToShares(assets, lockTime);
     }
 
@@ -212,7 +212,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * Allows an on-chain or off-chain user to simulate the effects of their
      * redeemption at the current block, given current on-chain conditions.
      */
-    function previewRedeem(uint256 shares, uint256 lockTime) public view returns (uint256 assets) {
+    function previewRedeem(uint256 shares, uint256 lockTime) public pure returns (uint256 assets) {
         return convertToAssets(shares, lockTime);
     }
 
@@ -313,7 +313,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * lockTime: time in seconds
      * Granularity is lost with lockTime between days
      */
-    function veMult(uint256 lockTime) internal view returns (uint256) {
+    function veMult(uint256 lockTime) internal pure returns (uint256) {
         return (
             (((lockTime / SEC_IN_DAY) ** 3) * COEFF_1)
             + ((lockTime / SEC_IN_DAY) * COEFF_3)
