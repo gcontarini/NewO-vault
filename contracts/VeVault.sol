@@ -483,7 +483,6 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     function _withdraw(uint256 assets, address receiver, address owner) internal returns (uint256 shares) {
         require(owner != address(0), "Cannot withdraw for null address");
         require(_assetBalances[owner] >= assets, "Address has not enought assets.");
-        require(_shareBalances[owner] >= shares, "Not enought shares to burn.");
         if (msg.sender != owner) {
             require(receiver == owner, "Must withdraw to owner address.");
             // Must check what happens for negative value in the block.timestamp
@@ -503,6 +502,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
 
         // This can be tricker, test it carefully
         shares = assets * avgVeMult(owner) / PRECISION;
+        require(_shareBalances[owner] >= shares, "Not enought shares to burn.");
         assets -= amountPenalty;
 
         // Burn ve tokens
@@ -531,7 +531,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         amountPenalty = (assets * penalty) / 100;
 
         // Makes sense????
-        require(amountPenalty <= _assetBalances[owner], "Not enought funds to pay penalty.");
+        require(_assetBalances[owner] >= amountPenalty , "Not enought funds to pay penalty.");
 
         _totalManagedAssets -= amountPenalty;
         _assetBalances[owner] -= amountPenalty;
