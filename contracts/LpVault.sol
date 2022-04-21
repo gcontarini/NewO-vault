@@ -58,16 +58,12 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
     /* ============ CONSTRUCTOR ============== */
 
     constructor(
-        // string _name,
-        // string _symbol,
         address _owner,
         address _lp,
         address _rewardsToken,
         address _veTokenVault,
         address _rewardsDistribution
     ) Owned (_owner) {
-        // name = _name;
-        // symbol = _symbol;
         _assetTokenAddress = _lp;
         rewardsToken = _rewardsToken;
         veTokenVault = _veTokenVault;
@@ -229,9 +225,7 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
     
     function deposit(uint256 assets, address receiver) override external nonReentrant notPaused updateReward(msg.sender) returns (uint256 shares) {
         require(assets > 0, "Cannot stake 0");
-
-        // ERC4626 compliance (does it even make sense?)
-        receiver = msg.sender;
+        require(receiver == msg.sender, "Receiver must be caller");
 
         // IF MSG.SENDER CAN GET THE BONUS
         uint256 bonusMultiplier = 1;
@@ -256,30 +250,29 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
     }
 
     function withdraw(uint256 assets, address receiver, address owner) override public nonReentrant updateReward(msg.sender) returns(uint256 shares){
-        // ERC4626 compliance (does it even make sense?)
-        receiver = owner = msg.sender;
-        uint256 bonusMultiplier = 1;
-        
         require(assets > 0, "Cannot withdraw 0");
+        require(owner == msg.sender, "Caller must be the owner");
+        
+        shares = assets;
         if(getNewoShare() >= getNewoLocked())
-            bonusMultiplier = getMultiplier();
-            
+            shares *= getMultiplier();
+        
         // ADD LP TOKENS (assets)
         // IS THIS SHIT GOING TO REVERT IF ASSETS > _assetBalances[receiver]? BECAUSE IT SHOULD
         _totalManagedAssets = _totalManagedAssets - assets;
-        _assetBalances[receiver] = _assetBalances[receiver] - assets;
+        _assetBalances[owner] = _assetBalances[owner] - assets;
         
         // ADD SHARES
-        _totalSupply = _totalSupply - assets * bonusMultiplier;
-        _shareBalances[receiver] = _shareBalances[receiver] - assets * bonusMultiplier;
+        _totalSupply = _totalSupply - shares;
+        _shareBalances[owner] = _shareBalances[owner] - shares;
 
         IERC20(_assetTokenAddress).safeTransfer(receiver, assets);
 
         // ERC4626 compliance has to emit withdraw event (does this arguments make any sense?)
-        emit Withdraw(receiver, receiver, receiver, assets, (assets * bonusMultiplier));
+        emit Withdraw(msg.sender, receiver, owner, assets, shares);
 
         // ERC4626 compliance. It has to return shares burned
-        return assets * bonusMultiplier;
+        return shares;
     }
 
     function getReward() public nonReentrant updateReward(msg.sender) {
