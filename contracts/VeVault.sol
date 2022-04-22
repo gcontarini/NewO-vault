@@ -11,6 +11,20 @@ import "./interfaces/IERC4626.sol";
 abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     using SafeERC20 for IERC20;
 
+    struct Penalty {
+        uint256 gracePeriod;
+        uint256 maxPerc;
+        uint256 minPerc;
+        uint256 stepPerc;
+    }
+    
+    struct LockTimer {
+        uint256 min;
+        uint256 max;
+        uint256 epoch;
+        bool    enforce;
+    }
+
     /* ========== STATE VARIABLES ========== */
 
     // Asset
@@ -27,17 +41,9 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     string public _name;
     string public _symbol;
 
-    uint256 internal _minLockTime;
-    uint256 internal _maxLockTime;
-    bool    internal _enforceTime;
-    uint256 internal _epoch;
+    LockTimer internal _lockTimer;
+    Penalty internal _penalty;
 
-    // Penalty system
-    uint256 internal _gracePeriod;
-    uint256 internal _maxPenalty;
-    uint256 internal _minPenalty;
-    uint256 internal _penaltyPerc;
-    
     // Constants
     uint256 private constant SEC_IN_DAY = 86400;
     uint256 private constant PRECISION = 100;
@@ -118,7 +124,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     }
 
     function convertToShares(uint256 assets) override external view returns (uint256 shares) {
-        return convertToShares(assets, _minLockTime);
+        return convertToShares(assets, _lockTimer.min);
     }
     
     /**
@@ -131,7 +137,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     }
 
     function convertToAssets(uint256 shares) override external view returns (uint256 assets) {
-        return convertToAssets(shares, _minLockTime);
+        return convertToAssets(shares, _lockTimer.min);
     }
     
     /** 
@@ -152,7 +158,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     }
 
     function previewDeposit(uint256 assets) override external view returns (uint256 shares) {
-        return previewDeposit(assets, _minLockTime);
+        return previewDeposit(assets, _lockTimer.min);
     }
     
     /**
@@ -173,7 +179,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     }
 
     function previewMint(uint256 shares) override external view returns (uint256 assets) {
-        return previewMint(shares, _minLockTime);
+        return previewMint(shares, _lockTimer.min);
     }
     
     /**
@@ -196,7 +202,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     }
 
     function previewWithdraw(uint256 assets) override external view returns (uint256 shares) {
-        return previewWithdraw(assets, _minLockTime);
+        return previewWithdraw(assets, _lockTimer.min);
     }
     
     /**
@@ -219,7 +225,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     }
 
     function previewRedeem(uint256 shares) override external view returns (uint256 assets) {
-        return previewRedeem(shares, _minLockTime);
+        return previewRedeem(shares, _lockTimer.min);
     }
     
     /**
@@ -248,7 +254,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * How long is the grace period in seconds
      */
     function gracePeriod() external view returns (uint256) {
-        return _gracePeriod;
+        return _penalty.gracePeriod;
     }
 
     /**
@@ -256,21 +262,21 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * in name of account.
      */
     function penaltyPercentage() external view returns (uint256) {
-        return _penaltyPerc;
+        return _penalty.stepPerc;
     }
 
     /**
      * Minimum lock time in seconds
      */
      function minLockTime() external view returns (uint256) {
-         return _minLockTime;
+         return _lockTimer.min;
      }
     
     /**
      * Maximum lock time in seconds
      */
      function maxLockTime() external view returns (uint256) {
-         return _maxLockTime;
+         return _lockTimer.max;
      }
 
      /**
@@ -339,7 +345,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
             nonReentrant
             notPaused 
             returns (uint256 shares) {
-        return _deposit(assets, receiver, _minLockTime);
+        return _deposit(assets, receiver, _lockTimer.min);
     }
     
     /**
@@ -378,8 +384,8 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
             nonReentrant
             notPaused
             returns (uint256 assets) {
-        assets = convertToAssets(shares, _minLockTime);
-        _deposit(assets, receiver, _minLockTime);
+        assets = convertToAssets(shares, _lockTimer.min);
+        _deposit(assets, receiver, _lockTimer.min);
         return assets;
     }
 
@@ -422,26 +428,26 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     * withdraws. Ignores the rule if set to false.
     */
     function changeUnlockRule(bool flag) external onlyOwner {
-        _enforceTime = flag;
+        _lockTimer.enforce = flag;
     }
 
     /**
      * Change state variabes which controls the penalty system
      */
     function changeGracePeriod(uint256 newGracePeriod) external onlyOwner {
-        _gracePeriod = newGracePeriod;
+        _penalty.gracePeriod = newGracePeriod;
     }
     
     function changeEpoch(uint256 newEpoch) external onlyOwner {
-        _epoch = newEpoch;
+        _lockTimer.epoch = newEpoch;
     }
     
     function changeMinPenalty(uint256 newMinPenalty) external onlyOwner {
-        _minPenalty = newMinPenalty;
+        _penalty.minPerc = newMinPenalty;
     }
     
     function changeMaxPenalty(uint256 newMaxPenalty) external onlyOwner {
-        _maxPenalty = newMaxPenalty;
+        _penalty.maxPerc = newMaxPenalty;
     }
 
     // Added to support recovering LP Rewards from other systems such as BAL to be distributed to holders
@@ -456,8 +462,8 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     function _deposit(uint256 assets, address receiver, uint256 lockTime) internal returns (uint256 shares) {
         require(assets > 0, "Cannot deposit 0");
         require(msg.sender == receiver, "Cannot deposit for another address.");
-        require(lockTime >= _minLockTime, "Lock time is less than min.");
-        require(lockTime <= _maxLockTime, "Lock time is more than max.");
+        require(lockTime >= _lockTimer.min, "Lock time is less than min.");
+        require(lockTime <= _lockTimer.max, "Lock time is more than max.");
 
         // Update lockTime
         uint256 unlockTime = block.timestamp + lockTime;
@@ -489,11 +495,11 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         if (msg.sender != owner) {
             require(receiver == owner, "Must withdraw to owner address.");
             // Must check what happens for negative value in the block.timestamp
-            if (_enforceTime) {
-                require(block.timestamp - _unlockDate[owner] > _gracePeriod, "Funds in grace period.");
+            if (_lockTimer.enforce) {
+                require(block.timestamp - _unlockDate[owner] > _penalty.gracePeriod, "Funds in grace period.");
             }
         }
-        else if (_enforceTime) {
+        else if (_lockTimer.enforce) {
             require(block.timestamp > _unlockDate[owner], "Funds not unlocked yet.");
         }
 
@@ -523,15 +529,15 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     }
 
     function _payPenalty(address owner, uint256 assets) internal returns (uint256 amountPenalty) {
-        uint256 penalty = _minPenalty 
+        uint256 penaltyAmount = _penalty.minPerc 
                         + (((_unlockDate[owner] - block.timestamp)
-                            / _epoch)
-                        * _penaltyPerc);
+                            / _lockTimer.epoch)
+                        * _penalty.stepPerc);
 
-        if (penalty > _maxPenalty) {
-            penalty = _maxPenalty;
+        if (penaltyAmount > _penalty.maxPerc) {
+            penaltyAmount = _penalty.maxPerc;
         }
-        amountPenalty = (assets * penalty) / 100;
+        amountPenalty = (assets * penaltyAmount) / 100;
 
         // Makes sense????
         require(_assetBalances[owner] >= amountPenalty , "Not enought funds to pay penalty.");

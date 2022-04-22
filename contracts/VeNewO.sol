@@ -22,16 +22,16 @@ contract VeNewO is VeVault("veNewO", "veNWO") {
         // assetToken = IERC20(stakingToken_);
         _assetTokenAddress = stakingToken_;
 
-        _gracePeriod = gracePeriod_; 
-        _minLockTime = minLockTime_;
-        _maxLockTime = maxLockTime_;
-        _epoch = epoch_;
+        _lockTimer.min = minLockTime_;
+        _lockTimer.max = maxLockTime_;
+        _lockTimer.epoch = epoch_;
+        _lockTimer.enforce = true;
         
-        _penaltyPerc = penaltyPerc_;
-        _maxPenalty = maxPenalty_;
-        _minPenalty = minPenalty_; 
+        _penalty.gracePeriod = gracePeriod_;
+        _penalty.maxPerc = maxPenalty_;
+        _penalty.minPerc = minPenalty_;
+        _penalty.stepPerc = penaltyPerc_;
 
-        _enforceTime = true;
         paused = false;
     }
 }
