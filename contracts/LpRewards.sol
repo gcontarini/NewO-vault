@@ -56,17 +56,9 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
 
     /* ============ CONSTRUCTOR ============== */
 
-    constructor(
-        address _owner,
-        address _lp,
-        address _rewardsToken,
-        address _veTokenVault,
-        address _rewardsDistribution
-    ) Owned (_owner) {
-        _assetTokenAddress = _lp;
-        rewardsToken = _rewardsToken;
-        veTokenVault = _veTokenVault;
-        rewardsDistribution = _rewardsDistribution;
+    constructor(string memory name_, string memory symbol_) {
+        _name = name_;
+        _symbol = symbol_;
     }
 
     /* ============ VIEWS (IERC4626) =================== */
@@ -138,7 +130,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     }
 
     /**
-     * NEWOLpVault tokens are not transferable.
+     * xNEWO tokens are not transferable.
      * Always returns zero.
      */
     function allowance(address, address) override external pure returns (uint256) {
@@ -201,6 +193,50 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
 
     function getRewardForDuration() external view returns (uint256) {
         return rewardRate * rewardsDuration;
+    }
+
+    function getReward() public nonReentrant updateReward(msg.sender) returns (uint256 reward) {
+        reward = rewards[msg.sender];
+        require(reward > 0, "No reward claimable");
+            
+        rewards[msg.sender] = 0;
+        IERC20(rewardsToken).safeTransfer(msg.sender, reward);
+        emit RewardPaid(msg.sender, reward);
+        return reward;
+    }
+
+    function notifyRewardAmount(uint256 reward)
+            override
+            external
+            onlyRewardsDistribution
+            updateReward(address(0)) {
+        if (block.timestamp >= periodFinish) {
+            rewardRate = reward / rewardsDuration;
+        } else {
+            uint256 remaining = periodFinish - block.timestamp;
+            uint256 leftover = remaining * rewardRate;
+            rewardRate = (reward + leftover) / rewardsDuration;
+        }
+
+        // Ensure the provided reward amount is not more than the balance in the contract.
+        // This keeps the reward rate in the right range, preventing overflows due to
+        // very high values of rewardRate in the earned and rewardsPerToken functions;
+        // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
+        uint balance = IERC20(rewardsToken).balanceOf(address(this));
+        require(rewardRate <= balance / rewardsDuration, "Provided reward too high");
+
+        lastUpdateTime = block.timestamp;
+        periodFinish = block.timestamp + rewardsDuration;
+        emit RewardAdded(reward);
+    }
+
+    function setRewardsDuration(uint256 _rewardsDuration) external onlyOwner {
+        require(
+            block.timestamp > periodFinish,
+            "Previous rewards period must be complete before changing the duration for the new period"
+        );
+        rewardsDuration = _rewardsDuration;
+        emit RewardsDurationUpdated(rewardsDuration);
     }
 
     /* =================  GET EXTERNAL INFO  =================== */
@@ -290,16 +326,6 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         return getReward();
     }
 
-    function getReward() public nonReentrant updateReward(msg.sender) returns (uint256 reward) {
-        reward = rewards[msg.sender];
-        require(reward > 0, "No reward claimable");
-            
-        rewards[msg.sender] = 0;
-        IERC20(rewardsToken).safeTransfer(msg.sender, reward);
-        emit RewardPaid(msg.sender, reward);
-        return reward;
-    }
-
     /* ========== RESTRICTED FUNCTIONS ========== */
     
     function _withdraw(uint256 assets, uint256 shares, address receiver, address owner) internal {
@@ -337,45 +363,12 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         emit Deposit(msg.sender, address(this), assets, shares);
     }
 
-    function notifyRewardAmount(uint256 reward)
-            override
-            external
-            onlyRewardsDistribution
-            updateReward(address(0)) {
-        if (block.timestamp >= periodFinish) {
-            rewardRate = reward / rewardsDuration;
-        } else {
-            uint256 remaining = periodFinish - block.timestamp;
-            uint256 leftover = remaining * rewardRate;
-            rewardRate = (reward + leftover) / rewardsDuration;
-        }
-
-        // Ensure the provided reward amount is not more than the balance in the contract.
-        // This keeps the reward rate in the right range, preventing overflows due to
-        // very high values of rewardRate in the earned and rewardsPerToken functions;
-        // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
-        uint balance = IERC20(rewardsToken).balanceOf(address(this));
-        require(rewardRate <= balance / rewardsDuration, "Provided reward too high");
-
-        lastUpdateTime = block.timestamp;
-        periodFinish = block.timestamp + rewardsDuration;
-        emit RewardAdded(reward);
-    }
 
     // Added to support recovering LP Rewards from other systems such as BAL to be distributed to holders
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external onlyOwner {
         require(tokenAddress != address(_assetTokenAddress), "Cannot withdraw the staking token");
         IERC20(tokenAddress).safeTransfer(owner, tokenAmount);
         emit Recovered(tokenAddress, tokenAmount);
-    }
-
-    function setRewardsDuration(uint256 _rewardsDuration) external onlyOwner {
-        require(
-            block.timestamp > periodFinish,
-            "Previous rewards period must be complete before changing the duration for the new period"
-        );
-        rewardsDuration = _rewardsDuration;
-        emit RewardsDurationUpdated(rewardsDuration);
     }
 
     /* ========== MODIFIERS ========== */
