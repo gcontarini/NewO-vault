@@ -273,14 +273,14 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      }
 
      /**
-     * @dev Returns the name of the token.
+     * Returns the name of the token.
      */
     function name() public view returns (string memory) {
         return _name;
     }
 
     /**
-     * @dev Returns the symbol of the token, usually a shorter version of the
+     * Returns the symbol of the token, usually a shorter version of the
      * name.
      */
     function symbol() public view returns (string memory) {

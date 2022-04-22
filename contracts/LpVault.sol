@@ -71,77 +71,77 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
 
     /* ============ VIEWS (IERC4626) =================== */
     
-    function asset() external view override returns(address assetTokenAddress) {
+    function asset() override external view returns (address assetTokenAddress) {
         return _assetTokenAddress;
     }
     
-    function totalAssets() external view override returns(uint256 totalManagedAssets) {
+    function totalAssets() override external view returns (uint256 totalManagedAssets) {
         return _totalManagedAssets;
     }
 
-    function totalSupply() external view override returns (uint256) {
+    function totalSupply() override external view returns (uint256) {
         return _totalSupply;
     }
 
-    function balanceOf(address account) external view override returns (uint256) {
+    function balanceOf(address account) override external view returns (uint256) {
         return _shareBalances[account];
     }
 
-    function assetBalanceOf(address account) external view returns(uint256) {
+    function assetBalanceOf(address account) external view returns (uint256) {
         return _assetBalances[account];
     }
 
-    function maxDeposit(address) external pure override returns(uint256 maxAssets) {
+    function maxDeposit(address) override external pure returns (uint256 maxAssets) {
         return 2 ** 256 - 1;
     }
 
-    function maxMint(address) external pure override returns(uint256 maxShares) {
+    function maxMint(address) override external pure returns (uint256 maxShares) {
         return 2 ** 256 - 1;
     }
 
-    function maxWithdraw(address owner) external view override returns(uint256 maxAssets) {
+    function maxWithdraw(address owner) override external view returns (uint256 maxAssets) {
         if (paused) {
             return 0;
         }
         return _assetBalances[owner];
     }
 
-    function maxRedeem(address owner) external view override returns(uint256 maxShares) {
+    function maxRedeem(address owner) override external view returns (uint256 maxShares) {
         if (paused) {
             return 0;
         }
         return _shareBalances[owner];
     }
 
-    function convertToShares(uint256 assets) external view override returns(uint256 shares) {
-        return assets * getMultiplier();
+    function convertToShares(uint256 assets) override external view returns (uint256 shares) {
+        return assets * getMultiplier(msg.sender);
     }
 
-    function convertToAssets(uint256 shares) external view override returns(uint256 assets) {
-        return shares / getMultiplier();
+    function convertToAssets(uint256 shares) override external view returns (uint256 assets) {
+        return shares / getMultiplier(msg.sender);
     }
 
-    function previewDeposit(uint256 assets) external view override returns(uint256 shares) {
-        return assets * getMultiplier();
+    function previewDeposit(uint256 assets) override external view returns (uint256 shares) {
+        return assets * getMultiplier(msg.sender);
     }
 
-    function previewMint(uint256 shares) external view override returns(uint256 assets) {
-         return shares / getMultiplier();
+    function previewMint(uint256 shares) override external view returns (uint256 assets) {
+         return shares / getMultiplier(msg.sender);
     }
 
-    function previewWithdraw(uint256 assets) external view override returns(uint256 shares) {
-        return assets / getMultiplier();
+    function previewWithdraw(uint256 assets) override external view returns (uint256 shares) {
+        return assets / getMultiplier(msg.sender);
     }
 
-    function previewRedeem(uint256 shares) external view override returns(uint256 assets) {
-        return shares / getMultiplier();
+    function previewRedeem(uint256 shares) override external view returns (uint256 assets) {
+        return shares / getMultiplier(msg.sender);
     }
 
     /**
      * NEWOLpVault tokens are not transferable.
      * Always returns zero.
      */
-    function allowance(address, address) external pure override returns (uint256) {
+    function allowance(address, address) override external pure returns (uint256) {
         return 0;
     }
 
@@ -162,15 +162,15 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
 
      /* ========== ERC20 NOT ALLOWED FUNCTIONS ========== */
 
-    function transfer(address, uint256) external pure override returns (bool) {
+    function transfer(address, uint256) override external pure returns (bool) {
         revert("Transfer not allowed for this token.");
     }
 
-    function approve(address, uint256) external pure override returns (bool) {
+    function approve(address, uint256) override external pure returns (bool) {
         revert("Approve not allowed for this token.");
     }
 
-    function transferFrom(address, address, uint256) external pure override returns (bool) {
+    function transferFrom(address, address, uint256) override external pure returns (bool) {
         revert("Transfer not allowed for this token.");
     }
 
@@ -206,24 +206,25 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
     /* =================  GET EXTERNAL INFO  =================== */
 
     // Get NEWO amount staked on the LP by caller
-    function getNewoShare() public view returns (uint256) {
+    function getNewoShare(address owner) public view returns (uint256) {
         uint112 reserve0; uint112 reserve1; uint32 timestamp;
 
         (reserve0, reserve1, timestamp) = IUniswapV2Pair(_assetTokenAddress).getReserves();
-        return IUniswapV2Pair(_assetTokenAddress).balanceOf(msg.sender)
+        return IUniswapV2Pair(_assetTokenAddress).balanceOf(owner)
                 * reserve1
                 / IUniswapV2Pair(_assetTokenAddress).totalSupply();
     }
 
-    function getMultiplier() public view returns(uint256) {
-        return IVeVault(veTokenVault).avgVeMult(msg.sender);
+    function getMultiplier(address owner) public view returns (uint256) {
+        IVeVault veToken = IVeVault(veTokenVault);
+        return veToken.balanceOf(owner) / veToken.assetBalanceOf(owner);
     }
 
-    function getNewoLocked() public view returns(uint256) {
-        return IVeVault(veTokenVault).assetBalanceOf(msg.sender);
+    function getNewoLocked(address owner) public view returns (uint256) {
+        return IVeVault(veTokenVault).assetBalanceOf(owner);
     }
 
-    function avgMult(address owner) internal view returns(uint256) {
+    function avgMult(address owner) internal view returns (uint256) {
         return _shareBalances[owner] / _assetBalances[owner];
     }
 
@@ -238,8 +239,8 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
             returns (uint256 shares) {
         // Grant boost
         shares = assets; 
-        if(getNewoShare() >= getNewoLocked())
-            shares *= getMultiplier();
+        if(getNewoShare(receiver) >= getNewoLocked(receiver))
+            shares *= getMultiplier(receiver);
 
         _deposit(assets, shares, receiver);
         return shares;
@@ -254,8 +255,8 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
             returns (uint256 assets) {
         // Grant boost
         assets = shares;
-        if(getNewoShare() >= getNewoLocked())
-            assets /= getMultiplier();
+        if(getNewoShare(receiver) >= getNewoLocked(receiver))
+            assets /= getMultiplier(receiver);
 
         _deposit(assets, shares, receiver);
         return assets;
@@ -283,7 +284,7 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
         return assets;
     }
 
-    // Withdraw all
+    // Withdraw all to caller
     function exit() external nonReentrant updateReward(msg.sender) returns (uint256 reward) {
         _withdraw(_assetBalances[msg.sender], _shareBalances[msg.sender], msg.sender, msg.sender);
         return getReward();
@@ -392,8 +393,6 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
     /* ========== EVENTS ========== */
 
     event RewardAdded(uint256 reward);
-    event Staked(address indexed user, uint256 amount);
-    event Withdrawn(address indexed user, uint256 amount);
     event RewardPaid(address indexed user, uint256 reward);
     event RewardsDurationUpdated(uint256 newDuration);
     event Recovered(address token, uint256 amount);
