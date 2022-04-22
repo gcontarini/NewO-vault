@@ -11,6 +11,7 @@ async function main() {
   const [deployer] = await ethers.getSigners();
   console.log("Current deployer addresses:", deployer.address);
 
+  // GET ALL CONTRACT FACTORIES HERE
   // We get the contract to deploy
   const NewOrderToken = await ethers.getContractFactory("NewOrderToken");
   // const StakingRewards = await ethers.getContractFactory("StakingRewards");

@@ -325,7 +325,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     /**
      * Returns the average ve multipler applied to an address
      */
-    function avgVeMult(address owner) public view returns (uint256) {
+    function avgVeMult(address owner) internal view returns (uint256) {
         return _shareBalances[owner] * PRECISION / _assetBalances[owner];
     }
 
