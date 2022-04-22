@@ -10,7 +10,7 @@ import "./interfaces/IUniswapV2Pair.sol";
 import "./interfaces/IVeVault.sol";
 import "./interfaces/IERC4626.sol";
 
-abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecipient, IERC4626 {
+abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRecipient, IERC4626 {
     using SafeERC20 for IERC20;
     
     /* ========= STATE VARIABLES ========= */

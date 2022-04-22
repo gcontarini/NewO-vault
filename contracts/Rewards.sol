@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -120,7 +121,6 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
         rewardsDuration = _rewardsDuration;
         emit RewardsDurationUpdated(rewardsDuration);
     }
-    
     
     function superUpdateReward(address account) external {
         require(msg.sender == vault, "The caller is not the vault"); ///???????
