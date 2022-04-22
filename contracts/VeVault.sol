@@ -45,7 +45,8 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     uint256 private constant MULT_FACTOR = 1e15;
     uint256 private constant COEFF_1 = 154143856;
     uint256 private constant COEFF_2 = 74861590400;
-    uint256 private constant COEFF_3 = 116304927000000 * 9002656460000000;
+    uint256 private constant COEFF_3 = 116304927000000;
+    uint256 private constant COEFF_4 = 9002656460000000;
     
     /* ========== CONSTRUCTOR ========== */
 
@@ -318,6 +319,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         return (
             (((lockTime / SEC_IN_DAY) ** 3) * COEFF_1)
             + ((lockTime / SEC_IN_DAY) * COEFF_3)
+            + (COEFF_4)
             - (((lockTime / SEC_IN_DAY) ** 2) * COEFF_2)
             ) / MULT_FACTOR;
     }
