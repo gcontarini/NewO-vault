@@ -10,19 +10,18 @@ import "./interfaces/IUniswapV2Pair.sol";
 import "./interfaces/IVeVault.sol";
 import "./interfaces/IERC4626.sol";
 
-
 abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecipient, IERC4626 {
     using SafeERC20 for IERC20;
     
     /* ========= STATE VARIABLES ========= */
 
-    //The reward token
+    // Reward token
     address public rewardsToken;
     
-    //Address of the veNEWO vault
+    // veNEWO vault
     address public veTokenVault;
     
-    // Address of the liquidity pool
+    // Liquidity pool
     address public lp;
 
     // ASSET ==> address, total and balance per address (asset is the lp token)
@@ -70,9 +69,7 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
         rewardsDistribution = _rewardsDistribution;
     }
 
-    /* ============ VIEWS =================== */
-
-    /* ============ ERC4626 COMPLIANCE =================== */
+    /* ============ VIEWS (IERC4626) =================== */
     
     function asset() external view override returns(address assetTokenAddress) {
         return _assetTokenAddress;
@@ -188,29 +185,34 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
             return rewardPerTokenStored;
         }
         return
-            rewardPerTokenStored+(
-                (lastTimeRewardApplicable()-(lastUpdateTime))*(rewardRate)*(1e18)/(_totalSupply)
+            rewardPerTokenStored
+            + ((lastTimeRewardApplicable() - (lastUpdateTime))
+                * (rewardRate) * (1e18)
+                / (_totalSupply)
             );
     }
     
     function earned(address account) public view returns (uint256) {
-        return (_shareBalances[account]*(rewardPerToken()-userRewardPerTokenPaid[account])/(1e18))+rewards[account];
+        return rewards[account]
+                + (_shareBalances[account]
+                    * (rewardPerToken() - userRewardPerTokenPaid[account])
+                    / (1e18));
     }
 
     function getRewardForDuration() external view returns (uint256) {
-        return rewardRate*rewardsDuration;
+        return rewardRate * rewardsDuration;
     }
-
 
     /* =================  GET EXTERNAL INFO  =================== */
 
     // Get NEWO amount staked on the LP by caller
     function getNewoShare() public view returns (uint256) {
-        uint112 reserve0;
-        uint112 reserve1;
-        uint32 timestamp;
+        uint112 reserve0; uint112 reserve1; uint32 timestamp;
+
         (reserve0, reserve1, timestamp) = IUniswapV2Pair(_assetTokenAddress).getReserves();
-        return IUniswapV2Pair(_assetTokenAddress).balanceOf(msg.sender)*reserve1/IUniswapV2Pair(_assetTokenAddress).totalSupply();
+        return IUniswapV2Pair(_assetTokenAddress).balanceOf(msg.sender)
+                * reserve1
+                / IUniswapV2Pair(_assetTokenAddress).totalSupply();
     }
 
     function getMultiplier() public view returns(uint256) {
@@ -234,7 +236,13 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
             notPaused
             updateReward(receiver)
             returns (uint256 shares) {
-        return _deposit(assets, receiver);
+        // Grant boost
+        shares = assets; 
+        if(getNewoShare() >= getNewoLocked())
+            shares *= getMultiplier();
+
+        _deposit(assets, shares, receiver);
+        return shares;
     }
     
     function mint(uint256 shares, address receiver)
@@ -244,13 +252,12 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
             notPaused
             updateReward(receiver)
             returns (uint256 assets) {
-        
         // Grant boost
         assets = shares;
         if(getNewoShare() >= getNewoLocked())
             assets /= getMultiplier();
 
-        _deposit(assets, receiver);
+        _deposit(assets, shares, receiver);
         return assets;
     }
 
@@ -260,7 +267,9 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
             nonReentrant
             updateReward(owner)
             returns(uint256 shares) {
-       return _withdraw(assets, receiver, owner); 
+        shares = assets * avgMult(owner);
+        _withdraw(assets, shares, receiver, owner);
+        return shares; 
     }
 
     function redeem(uint256 shares, address receiver, address owner)
@@ -270,33 +279,32 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
             updateReward(owner)
             returns (uint256 assets) {
         assets = shares / avgMult(owner);
-        _withdraw(assets, receiver, owner);
+        _withdraw(assets, shares, receiver, owner);
         return assets;
     }
 
-    function getReward() public nonReentrant updateReward(msg.sender) {
-        uint256 reward = rewards[msg.sender];
-        if (reward > 0) {
-            rewards[msg.sender] = 0;
-            IERC20(rewardsToken).safeTransfer(msg.sender, reward);
-            emit RewardPaid(msg.sender, reward);
-        }
+    // Withdraw all
+    function exit() external nonReentrant updateReward(msg.sender) returns (uint256 reward) {
+        _withdraw(_assetBalances[msg.sender], _shareBalances[msg.sender], msg.sender, msg.sender);
+        return getReward();
     }
 
-    // Withdraw all
-    function exit() external nonReentrant updateReward(msg.sender) {
-        _withdraw(_assetBalances[msg.sender], msg.sender, msg.sender);
-        getReward();
+    function getReward() public nonReentrant updateReward(msg.sender) returns (uint256 reward) {
+        reward = rewards[msg.sender];
+        require(reward > 0, "No reward claimable");
+            
+        rewards[msg.sender] = 0;
+        IERC20(rewardsToken).safeTransfer(msg.sender, reward);
+        emit RewardPaid(msg.sender, reward);
+        return reward;
     }
 
     /* ========== RESTRICTED FUNCTIONS ========== */
     
-    function _withdraw(uint256 assets, address receiver, address owner) internal returns(uint256 shares) {
+    function _withdraw(uint256 assets, uint256 shares, address receiver, address owner) internal {
         require(assets > 0, "Cannot withdraw 0");
         require(owner == msg.sender, "Caller must be the owner");
-        require(assets <= _assetBalances[owner], "Owner must have enought assets");
-        
-        shares = assets * avgMult(owner);
+        require(_assetBalances[owner] >= assets, "Owner must have enought assets");
         
         // Remove LP Tokens (assets)
         _totalManagedAssets = _totalManagedAssets - assets;
@@ -310,20 +318,12 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
 
         // ERC4626 compliance has to emit withdraw event (does this arguments make any sense?)
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
-
-        // ERC4626 compliance. It has to return shares burned
-        return shares;
     }
     
-    function _deposit(uint256 assets, address receiver) internal returns (uint256 shares) {
+    function _deposit(uint256 assets, uint256 shares, address receiver) internal {
         require(assets > 0, "Cannot stake 0");
         require(receiver == msg.sender, "Receiver must be caller");
 
-        // Grant boost
-        shares = assets; 
-        if(getNewoShare() >= getNewoLocked())
-            shares *= getMultiplier();
-        
         // Lp tokens
         _totalManagedAssets = _totalManagedAssets + assets;
         _assetBalances[receiver] = _assetBalances[receiver] + assets;
@@ -333,19 +333,20 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
         _shareBalances[receiver] = _shareBalances[receiver] + shares;
 
         IERC20(_assetTokenAddress).safeTransferFrom(msg.sender, address(this), assets);
-        // ERC4626 compliance has to emit deposit event
         emit Deposit(msg.sender, address(this), assets, shares);
-        // ERC4626 compliance. It has to return shares minted
-        return shares;
     }
 
-    function notifyRewardAmount(uint256 reward) external override onlyRewardsDistribution updateReward(address(0)) {
+    function notifyRewardAmount(uint256 reward)
+            override
+            external
+            onlyRewardsDistribution
+            updateReward(address(0)) {
         if (block.timestamp >= periodFinish) {
-            rewardRate = reward/rewardsDuration;
+            rewardRate = reward / rewardsDuration;
         } else {
-            uint256 remaining = periodFinish-block.timestamp;
-            uint256 leftover = remaining*rewardRate;
-            rewardRate = (reward+leftover)/rewardsDuration;
+            uint256 remaining = periodFinish - block.timestamp;
+            uint256 leftover = remaining * rewardRate;
+            rewardRate = (reward + leftover) / rewardsDuration;
         }
 
         // Ensure the provided reward amount is not more than the balance in the contract.
@@ -353,10 +354,10 @@ abstract contract LpVault is ReentrancyGuard, Pausable, RewardsDistributionRecip
         // very high values of rewardRate in the earned and rewardsPerToken functions;
         // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
         uint balance = IERC20(rewardsToken).balanceOf(address(this));
-        require(rewardRate <= balance/rewardsDuration, "Provided reward too high");
+        require(rewardRate <= balance / rewardsDuration, "Provided reward too high");
 
         lastUpdateTime = block.timestamp;
-        periodFinish = block.timestamp+rewardsDuration;
+        periodFinish = block.timestamp + rewardsDuration;
         emit RewardAdded(reward);
     }
 
