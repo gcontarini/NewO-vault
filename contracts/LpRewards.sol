@@ -6,9 +6,14 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import "./Pausable.sol";
 import "./RewardsDistributionRecipient.sol";
+
 import "./interfaces/IUniswapV2Pair.sol";
 import "./interfaces/IVeVault.sol";
 import "./interfaces/IERC4626.sol";
+
+// debugg
+import "hardhat/console.sol";
+
 
 abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRecipient, IERC4626 {
     using SafeERC20 for IERC20;
@@ -253,7 +258,14 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
 
     function getMultiplier(address owner) public view returns (uint256) {
         IVeVault veToken = IVeVault(veTokenVault);
-        return veToken.balanceOf(owner) / veToken.assetBalanceOf(owner);
+        
+        // to make sure that there is no division by zero
+        uint256 _assetBalance = veToken.assetBalanceOf(owner);
+        if(_assetBalance == 0){
+            return 1;
+        }else {
+            return veToken.balanceOf(owner) / _assetBalance;   
+        }
     }
 
     function getNewoLocked(address owner) public view returns (uint256) {
@@ -359,6 +371,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         _totalSupply = _totalSupply + shares;
         _shareBalances[receiver] = _shareBalances[receiver] + shares;
 
+        console.log("im getting here?");
         IERC20(_assetTokenAddress).safeTransferFrom(msg.sender, address(this), assets);
         emit Deposit(msg.sender, address(this), assets, shares);
     }

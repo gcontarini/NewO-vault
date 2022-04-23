@@ -46,14 +46,13 @@ async function main() {
 	// https://etherscan.io/address/0x5976fd31391dd442d59af9ed43d37a5394379956
 	await hre.network.provider.request({
 		method: "hardhat_impersonateAccount",
-		params: ["0x5976fd31391dd442D59aF9eD43d37A5394379956"],
+		params: ["0xc08ED9a9ABEAbcC53875787573DC32Eee5E43513"],
 	});
-	const signer = await ethers.getSigner("0x5976fd31391dd442D59aF9eD43d37A5394379956")
-
-	// Deposit. It breaks: reverted with panic code 0x12 (Division or modulo division by zero).
-	// TODO: Import console log into the contracts and debug this shit
-	xNewo.deposit(10, signer.address);
+	const signer = await ethers.getSigner("0xc08ED9a9ABEAbcC53875787573DC32Eee5E43513")
 	
+	// Deposit. It breaks: Error: cannot estimate gas
+	// TODO: Import console log into the contracts and debug this shit
+	xNewo.connect(signer.address).deposit(0.00502907359557*10**17, signer.address);
 }
 
 main().catch((error) => {
