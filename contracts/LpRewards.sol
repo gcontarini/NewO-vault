@@ -343,7 +343,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
 
         IERC20(_assetTokenAddress).safeTransfer(receiver, assets);
 
-        // ERC4626 compliance has to emit withdraw event (does this arguments make any sense?)
+        // ERC4626 compliance has to emit withdraw event
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
     }
     
@@ -362,7 +362,6 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         IERC20(_assetTokenAddress).safeTransferFrom(msg.sender, address(this), assets);
         emit Deposit(msg.sender, address(this), assets, shares);
     }
-
 
     // Added to support recovering LP Rewards from other systems such as BAL to be distributed to holders
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external onlyOwner {
