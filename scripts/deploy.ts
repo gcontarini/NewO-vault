@@ -5,7 +5,7 @@ import { ethers } from "hardhat";
 
 async function main() {
   // Options to deploy
-  const tokenSupply = 1000;
+  const tokenSupply = 100000000;
 
   // Get signer address
   const [deployer] = await ethers.getSigners();
@@ -35,6 +35,7 @@ async function main() {
   console.log("veNewO deployed to:", veNewo.address);
   
   // Deploy LP reward
+  // const xNewo = await XNewO.deploy(deployer.address, lp.address, veNewo.address, rewardsDistribution.address);
   
   // Make allowance to veNewO
   let amountLock = 500;
