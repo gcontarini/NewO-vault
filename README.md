@@ -18,6 +18,15 @@ Deploy the contracts
 ## Branch strategy
 Development branch is the wip. Don't push to main/master.
 
+
+# MainNet scripts
+
+## Run a mainNet fork at your localhost
+`npx hardhat node --fork https://mainnet.infura.io/v3/26556cff548e498db5d4d07c6f5fa0f6`
+
+## Run the script
+`npx hardhat run scripts/mainnetScripts.js --network localhost`
+
 # Etherscan verification
 
 To try out Etherscan verification, you first need to deploy a contract to an Ethereum network that's supported by Etherscan, such as Ropsten.
