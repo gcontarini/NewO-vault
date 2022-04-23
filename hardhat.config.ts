@@ -28,6 +28,7 @@ const config: HardhatUserConfig = {
     hardhat: {
       gas: 2100000000000000,
       gasPrice: 8000000000,
+      // blockGasLimit: ,
       forking: {
         url: "https://mainnet.infura.io/v3/26556cff548e498db5d4d07c6f5fa0f6"
       }

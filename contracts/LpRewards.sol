@@ -364,14 +364,13 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         require(receiver == msg.sender, "Receiver must be caller");
 
         // Lp tokens
-        _totalManagedAssets = _totalManagedAssets + assets;
-        _assetBalances[receiver] = _assetBalances[receiver] + assets;
+        _totalManagedAssets += assets;
+        _assetBalances[receiver] += assets;
         
         // Vault shares
-        _totalSupply = _totalSupply + shares;
-        _shareBalances[receiver] = _shareBalances[receiver] + shares;
+        _totalSupply += shares;
+        _shareBalances[receiver] += shares;
 
-        console.log("im getting here?");
         IERC20(_assetTokenAddress).safeTransferFrom(msg.sender, address(this), assets);
         emit Deposit(msg.sender, address(this), assets, shares);
     }
