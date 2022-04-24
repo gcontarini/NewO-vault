@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "./interfaces/IVeVault.sol";
 
 // Inheritance
 import "./RewardsDistributionRecipient.sol";
@@ -11,10 +12,15 @@ import "./Pausable.sol";
 contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
+    struct Account {
+        uint256 rewardPerTokenPaid;
+        uint256 rewards;
+        uint256 dueDate;
+    }
+
     /* ========== STATE VARIABLES ========== */
 
-    IERC20 public rewardsToken;
-    // TODO implement vault as interface
+    address public rewardsToken;
     address public vault;                    //address of the ve vault
     uint256 public periodFinish = 0;         //end of the rewardDuration period
     uint256 public rewardRate = 0;           //Rewards per second distributed by the contract ==> rewardavailable / rewardDuration
@@ -22,8 +28,7 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
     uint256 public lastUpdateTime;           //when the reward period started
     uint256 public rewardPerTokenStored;     //amounts of reward per staked token
 
-    mapping(address => uint256) public userRewardPerTokenPaid;  //rewardPerTokenStored last update
-    mapping(address => uint256) public rewards; //earned() last update
+    mapping(address => Account) public accounts;
 
     /* ========== CONSTRUCTOR ========== */
 
@@ -33,38 +38,51 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
         address _rewardsDistribution,
         address _rewardsToken
     ) Owned(_owner) {
-        rewardsToken = IERC20(_rewardsToken);
+        rewardsToken = _rewardsToken;
         rewardsDistribution = _rewardsDistribution;
         vault = _vault;
+        lastUpdateTime = block.timestamp;
     }
 
     /* ========== VIEWS ========== */
 
-    function getVault() public view returns (address) {
+    function getVaultAddress() public view returns (address) {
         return vault;
     }
 
-    function lastTimeRewardApplicable() public view returns (uint256) {
+    function lastTimeRewardApplicable(address owner) public view returns (uint256) {
+        if (owner != address(0) && accounts[owner].dueDate < periodFinish) {
+            return block.timestamp < accounts[owner].dueDate ? block.timestamp : accounts[owner].dueDate;
+        }
         return block.timestamp < periodFinish ? block.timestamp : periodFinish;
     }
 
-    function rewardPerToken() public view returns (uint256) {
-        // Check the total supply of vault, not an ERC20
-        uint256 _totalSupply = IERC20(vault).totalSupply();
+    function rewardPerToken(address owner) public view returns (uint256) {
+        uint256 _totalSupply = IVeVault(vault).totalSupply();
 
         if (_totalSupply == 0) {
             return rewardPerTokenStored;
         }
-        return
-            rewardPerTokenStored + (
-                (lastTimeRewardApplicable()-(lastUpdateTime))*(rewardRate)*(1e18)/(_totalSupply)
-            );
+        return rewardPerTokenStored
+                + ((lastTimeRewardApplicable(owner) - lastUpdateTime)
+                    * rewardRate
+                    * 1e18
+                    / _totalSupply
+                );
     }
     
     // This function calculates how much rewards a staker earned and there for will get when calling getReward()
-    function earned(address account) public view returns (uint256) {
-        // Again, vault is not an ERC20 but implement this interface 
-        return (IERC20(vault).balanceOf(account) * (rewardPerToken() - userRewardPerTokenPaid[account]) / (1e18)) + rewards[account];
+    function earned(address owner) public view returns (uint256) {
+        uint256 currentReward = rewardPerToken(owner);
+        uint256 paidReward = accounts[owner].rewardPerTokenPaid;
+
+        uint256 moreReward = 0;
+        if (currentReward >= paidReward) {
+            moreReward = IVeVault(vault).balanceOf(owner)
+                            * (currentReward - paidReward) 
+                            / 1e18;
+        }
+        return accounts[owner].rewards + moreReward;
     }
 
     function getRewardForDuration() external view returns (uint256) {
@@ -73,20 +91,29 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
 
     /* ========== MUTATIVE FUNCTIONS ========== */
 
+    function notifyDeposit() public updateReward(msg.sender) returns(Account memory) {
+        emit NotifyDeposit(msg.sender, accounts[owner].rewardPerTokenPaid, accounts[owner].dueDate);
+        return accounts[owner];
+    }
+
     function getReward() public nonReentrant updateReward(msg.sender) {
-        uint256 reward = rewards[msg.sender];
+        uint256 reward = accounts[msg.sender].rewards;
         if (reward > 0) {
-            rewards[msg.sender] = 0;
-            rewardsToken.safeTransfer(msg.sender, reward);
+            accounts[msg.sender].rewards = 0;
+            IERC20(rewardsToken).safeTransfer(msg.sender, reward);
             emit RewardPaid(msg.sender, reward);
         }
     }
 
     /* ========== RESTRICTED FUNCTIONS ========== */
 
-    function notifyRewardAmount(uint256 reward) external override onlyRewardsDistribution updateReward(address(0)) {
+    function notifyRewardAmount(uint256 reward)
+            external
+            override 
+            onlyRewardsDistribution 
+            updateReward(address(0)) {
         if (block.timestamp >= periodFinish) {
-            rewardRate = reward/rewardsDuration;
+            rewardRate = reward / rewardsDuration;
         } else {
             uint256 remaining = periodFinish - block.timestamp;
             uint256 leftover = remaining * rewardRate;
@@ -97,18 +124,15 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
         // This keeps the reward rate in the right range, preventing overflows due to
         // very high values of rewardRate in the earned and rewardsPerToken functions;
         // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
-        uint balance = rewardsToken.balanceOf(vault);
+        uint balance = IERC20(rewardsToken).balanceOf(address(this));
         require(rewardRate <= balance / rewardsDuration, "Provided reward too high");
 
         lastUpdateTime = block.timestamp;
-        periodFinish = block.timestamp+rewardsDuration;
+        periodFinish = block.timestamp + rewardsDuration;
         emit RewardAdded(reward);
     }
 
-    // Ask marek about this function
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external onlyOwner {
-        // Not correct, we need the addres of the staking token allowed in the vault
-        require(tokenAddress != vault, "Cannot withdraw the staking token");
         IERC20(tokenAddress).safeTransfer(owner, tokenAmount);
         emit Recovered(tokenAddress, tokenAmount);
     }
@@ -122,24 +146,16 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
         emit RewardsDurationUpdated(rewardsDuration);
     }
     
-    function superUpdateReward(address account) external {
-        require(msg.sender == vault, "The caller is not the vault"); ///???????
-        rewardPerTokenStored = rewardPerToken(); 
-        lastUpdateTime = lastTimeRewardApplicable();
-        if (account != address(0)) {
-            rewards[account] = earned(account);
-            userRewardPerTokenPaid[account] = rewardPerTokenStored;
-        }
-    }
-
     /* ========== MODIFIERS ========== */
 
-    modifier updateReward(address account) {
-        rewardPerTokenStored = rewardPerToken();
-        lastUpdateTime = lastTimeRewardApplicable();
-        if (account != address(0)) {
-            rewards[account] = earned(account);
-            userRewardPerTokenPaid[account] = rewardPerTokenStored;
+    modifier updateReward(address owner) {
+        rewardPerTokenStored = rewardPerToken(address(0));
+        lastUpdateTime = lastTimeRewardApplicable(address(0));
+        
+        if (owner != address(0)) {
+            accounts[owner].dueDate = IVeVault(vault).unlockDate(owner);
+            accounts[owner].rewards = earned(owner);
+            accounts[owner].rewardPerTokenPaid = rewardPerToken(address(0));
         }
         _;
     }
@@ -147,9 +163,8 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
     /* ========== EVENTS ========== */
 
     event RewardAdded(uint256 reward);
-    // event Staked(address indexed user, uint256 amount);
-    // event Withdrawn(address indexed user, uint256 amount);
     event RewardPaid(address indexed user, uint256 reward);
     event RewardsDurationUpdated(uint256 newDuration);
+    event NotifyDeposit(address indexed user, uint256 rewardPerTokenPaid, uint256 dueDate);
     event Recovered(address token, uint256 amount);
 }
