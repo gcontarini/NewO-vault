@@ -12,9 +12,9 @@ contract XNewO is LpRewards("xNewO", "xNWO") {
         address _veTokenVault,
         address _rewardsDistribution
     ) Owned (_owner) {
-        _assetTokenAddress = _lp;
+        assetToken = _lp;
         rewardsToken = _rewardsToken;
-        veTokenVault = _veTokenVault;
+        veVault = _veTokenVault;
         rewardsDistribution = _rewardsDistribution;
     }
 }
