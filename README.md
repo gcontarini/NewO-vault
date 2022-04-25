@@ -3,7 +3,7 @@ New vault system with veTokens and multiple rewards distribuition tokens.
 
 # Instructions to run
 First install npm dependecies <br>
-`npm init`
+`npm install`
 
 Now compile the contracts 
 `npx hardhat compile` <br>
@@ -25,7 +25,7 @@ Development branch is the wip. Don't push to main/master.
 `npx hardhat node --fork https://mainnet.infura.io/v3/26556cff548e498db5d4d07c6f5fa0f6`
 
 ## Run the script
-`npx hardhat run scripts/mainnetScripts.js --network localhost`
+`npx hardhat run scripts/ethDeploy.ts --network localhost`
 
 # Etherscan verification
 
