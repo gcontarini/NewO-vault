@@ -20,11 +20,6 @@ async function main() {
 	// Create an instance of the NewO ERC20
 	const newoToken = await ethers.getContractAt(newOrderABI, newoAddress);
 
-	// examples for calling the contracts:
-	const example = await lp.getReserves();
-	const newoSupply = await newoToken.totalSupply()
-	console.log("\nExamples:", example, newoSupply);
-
 	/* ============ Get Factory of contracts to deploy ========= */
 	
 	const VeNewO = await ethers.getContractFactory("VeNewO");
@@ -43,7 +38,7 @@ async function main() {
 
 	const veNewo = await VeNewO.deploy(deployer.address, newoAddress, 604800, 7776000, 94608000, 2, 15, 5, 86400, txOpt1);
 	await veNewo.deployed();
-	const rewardNewO = await RewardNewO.deploy(deployer.address, veNewo.address, rewardDistributionAddress, veNewo.address, txOpt1);
+	const rewardNewO = await RewardNewO.deploy(deployer.address, veNewo.address, rewardDistributionAddress, newoAddress, txOpt1);
 	await rewardNewO.deployed();
 	const xNewo = await XNewO.deploy(deployer.address, lp.address, newoAddress, veNewo.address, rewardDistributionAddress, txOpt1);
 	await xNewo.deployed();
@@ -53,13 +48,12 @@ async function main() {
 	console.log("\nxNewo deployed at:", xNewo.address)
 
 	/* ==================== Testing xNewO vault =================== */
-	const testAccount = "0x5976fd31391dd442d59af9ed43d37a5394379956";
+	const testAccount = "0xdb36b23964FAB32dCa717c99D6AEFC9FB5748f3a";
 
 	// Impersonate an account that has NewOLP tokens and NewO tokens
-	// https://etherscan.io/address/0x5976fd31391dd442d59af9ed43d37a5394379956
+	// https://etherscan.io/address/0xdb36b23964FAB32dCa717c99D6AEFC9FB5748f3a
 	await hre.network.provider.request({
 		method: "hardhat_impersonateAccount",
-		// params: ["0xc08ED9a9ABEAbcC53875787573DC32Eee5E43513"],
 		params: [testAccount],
 	});
 	// Grant more gas to this sucker
@@ -73,8 +67,14 @@ async function main() {
 		gasLimit: "0xf21620" // hardcoding a gas limit to work
 	};
 
-	// const signer = await ethers.getSigner("0xc08ED9a9ABEAbcC53875787573DC32Eee5E43513")
 	const signer = await ethers.getSigner(testAccount);
+
+	// Transfer NewO to Rewards Contract
+	const numberOfTokens = ethers.utils.parseUnits('1.0', 18);
+	await newoToken.connect(signer).transfer(rewardNewO.address, numberOfTokens);
+	
+	// Notify Reward amount (the caller must be rewardDistribution)
+	await rewardNewO.connect(deployer).notifyRewardAmount(numberOfTokens);
 
 	// Lock nwo for veNwo
 	const newoAmount = await newoToken.balanceOf(signer.address);
@@ -84,9 +84,7 @@ async function main() {
 	const veLockTx = await veNewo.connect(signer)["deposit(uint256,address,uint256)"](newoAmount, signer.address, years3, txOpt2);
 	console.log("\nveLock tx: ", veLockTx.hash);
 	console.log("\nveBalance:", await veNewo.balanceOf(signer.address));
-
-	console.log("hhhh", await veNewo.totalSupply());
-
+	
 	// Notify reward contract about deposit
 	await rewardNewO.connect(signer).notifyDeposit(txOpt2); // Check what is going wrong about it.
 
@@ -96,10 +94,11 @@ async function main() {
 
 	// Make allowance for LP tokens
 	const LpAllowance = await lp.connect(signer).approve(xNewo.address, depositAmount, txOpt2);
-	// Stake LP
+	// Stake LP to get xNewO
 	const txLpDeposit = await xNewo.connect(signer).deposit(depositAmount, signer.address, txOpt2);
 	console.log("\nStake LP tx:", txLpDeposit.hash);
-	console.log("\nLP reward balance:", await xNewo.balanceOf(signer.address));
+	console.log("\nLp staked balance: ", await xNewo.assetBalanceOf(signer.address))
+	console.log("\nxNewO balance:", await xNewo.balanceOf(signer.address));
 }
 
 main().catch((error) => {

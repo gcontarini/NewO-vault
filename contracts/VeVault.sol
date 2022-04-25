@@ -467,10 +467,10 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
 
         // Update lockTime
         uint256 unlockTime = block.timestamp + lockTime;
-        if (_unlockDate[owner] < unlockTime) {
-            _unlockDate[owner] = unlockTime;
+        if (_unlockDate[receiver] < unlockTime) {
+            _unlockDate[receiver] = unlockTime;
         } else {
-            _unlockDate[owner] += lockTime;
+            _unlockDate[receiver] += lockTime;
         }
         
         shares = convertToShares(assets, lockTime);
