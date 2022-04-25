@@ -2,6 +2,7 @@
 import hre = require("hardhat");
 import { ethers } from "hardhat";
 
+
 import newOrderABI from "../abi/NewOrderERC20.json";
 
 async function main() {
@@ -76,13 +77,14 @@ async function main() {
 	// Notify Reward amount (the caller must be rewardDistribution)
 	await rewardNewO.connect(deployer).notifyRewardAmount(numberOfTokens);
 
-	// Lock nwo for veNwo
+	// Lock Newo for veNewo
 	const newoAmount = await newoToken.balanceOf(signer.address);
-	await newoToken.connect(signer).approve(veNewo.address, newoAmount, txOpt2);
+	await newoToken.connect(signer).approve(veNewo.address, numberOfTokens, txOpt2);
 	
 	const years3 = 94608000;
-	const veLockTx = await veNewo.connect(signer)["deposit(uint256,address,uint256)"](newoAmount, signer.address, years3, txOpt2);
+	const veLockTx = await veNewo.connect(signer)["deposit(uint256,address,uint256)"](numberOfTokens, signer.address, years3, txOpt2);
 	console.log("\nveLock tx: ", veLockTx.hash);
+	console.log("\nNewO locked: ", await veNewo.assetBalanceOf(signer.address));
 	console.log("\nveBalance:", await veNewo.balanceOf(signer.address));
 	
 	// Notify reward contract about deposit
@@ -93,7 +95,7 @@ async function main() {
 	console.log("\nLP balance:", depositAmount);
 
 	// Make allowance for LP tokens
-	const LpAllowance = await lp.connect(signer).approve(xNewo.address, depositAmount, txOpt2);
+	lp.connect(signer).approve(xNewo.address, depositAmount, txOpt2);
 	// Stake LP to get xNewO
 	const txLpDeposit = await xNewo.connect(signer).deposit(depositAmount, signer.address, txOpt2);
 	console.log("\nStake LP tx:", txLpDeposit.hash);
