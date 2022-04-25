@@ -28,6 +28,7 @@ async function main() {
 	/* ============ Get Factory of contracts to deploy ========= */
 	
 	const VeNewO = await ethers.getContractFactory("VeNewO");
+	const RewardNewO = await ethers.getContractFactory("Rewards");
 	const XNewO = await ethers.getContractFactory("XNewO");
 
 	/* ==================== Deployment ========================= */
@@ -39,13 +40,16 @@ async function main() {
 	const txOpt1 = {
 		gasPrice: baseFee,
 	};
-	
+
 	const veNewo = await VeNewO.deploy(deployer.address, newoAddress, 604800, 7776000, 94608000, 2, 15, 5, 86400, txOpt1);
 	await veNewo.deployed();
-	const xNewo = await XNewO.deploy(deployer.address, liquidityPoolAddress, newoAddress, veNewo.address, rewardDistributionAddress, txOpt1);
+	const rewardNewO = await RewardNewO.deploy(deployer.address, veNewo.address, rewardDistributionAddress, veNewo.address, txOpt1);
+	await rewardNewO.deployed();
+	const xNewo = await XNewO.deploy(deployer.address, lp.address, newoAddress, veNewo.address, rewardDistributionAddress, txOpt1);
 	await xNewo.deployed();
 
 	console.log("\nveNewo deployed at:", veNewo.address);
+	console.log("\nrewardNewO deployed at:", rewardNewO.address);
 	console.log("\nxNewo deployed at:", xNewo.address)
 
 	/* ==================== Testing xNewO vault =================== */
@@ -80,6 +84,11 @@ async function main() {
 	const veLockTx = await veNewo.connect(signer)["deposit(uint256,address,uint256)"](newoAmount, signer.address, years3, txOpt2);
 	console.log("\nveLock tx: ", veLockTx.hash);
 	console.log("\nveBalance:", await veNewo.balanceOf(signer.address));
+
+	console.log("hhhh", await veNewo.totalSupply());
+
+	// Notify reward contract about deposit
+	await rewardNewO.connect(signer).notifyDeposit(txOpt2); // Check what is going wrong about it.
 
 	// Calculat how much LP tokens it can stake
 	const depositAmount = await lp.balanceOf(testAccount);

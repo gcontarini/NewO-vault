@@ -9,6 +9,8 @@ import "./interfaces/IVeVault.sol";
 import "./RewardsDistributionRecipient.sol";
 import "./Pausable.sol";
 
+import "hardhat/console.sol";
+
 contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
@@ -151,7 +153,7 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
     modifier updateReward(address owner) {
         rewardPerTokenStored = rewardPerToken(address(0));
         lastUpdateTime = lastTimeRewardApplicable(address(0));
-        
+
         if (owner != address(0)) {
             accounts[owner].dueDate = IVeVault(vault).unlockDate(owner);
             accounts[owner].rewards = earned(owner);
