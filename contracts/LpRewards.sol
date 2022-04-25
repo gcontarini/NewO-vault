@@ -18,6 +18,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         uint256 rewards;
         uint256 assets;
         uint256 shares;
+        uint256 sharesBoost;
         uint256 rewardPerTokenPaid;
     }
 
@@ -102,7 +103,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         if (paused) {
             return 0;
         }
-        return accounts[owner].shares;
+        return accounts[owner].shares - accounts[owner].sharesBoost;
     }
 
     function convertToShares(uint256 assets) override external view returns (uint256 shares) {
@@ -122,7 +123,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     }
 
     function previewWithdraw(uint256 assets) override external view returns (uint256 shares) {
-        return assets / getMultiplier(msg.sender);
+        return assets * getMultiplier(msg.sender);
     }
 
     function previewRedeem(uint256 shares) override external view returns (uint256 assets) {
@@ -266,10 +267,6 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         return IVeVault(veVault).assetBalanceOf(owner);
     }
 
-    function avgMult(address owner) internal view returns (uint256) {
-        return accounts[owner].shares / accounts[owner].assets;
-    }
-
     /* ========== MUTATIVE FUNCTIONS ========== */
     
     function deposit(uint256 assets, address receiver)
@@ -277,29 +274,25 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
             external
             nonReentrant
             notPaused
+            updateBoostBefore(receiver)
             updateReward(receiver)
+            updateBoostAfter(receiver)
             returns (uint256 shares) {
-        // Grant boost
-        shares = assets; 
-        if (getNewoShare(receiver) >= getNewoLocked(receiver))
-            shares *= getMultiplier(receiver);
-
+        shares = assets;
         _deposit(assets, shares, receiver);
         return shares;
     }
-    
+
     function mint(uint256 shares, address receiver)
             override
             external
             nonReentrant
             notPaused
+            updateBoostBefore(receiver)
             updateReward(receiver)
+            updateBoostAfter(receiver)
             returns (uint256 assets) {
-        // Grant boost
         assets = shares;
-        if (getNewoShare(receiver) >= getNewoLocked(receiver))
-            assets /= getMultiplier(receiver);
-
         _deposit(assets, shares, receiver);
         return assets;
     }
@@ -308,9 +301,11 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
             override
             external
             nonReentrant
+            updateBoostBefore(owner)
             updateReward(owner)
+            updateBoostAfter(owner)
             returns(uint256 shares) {
-        shares = assets * avgMult(owner);
+        shares = assets;
         _withdraw(assets, shares, receiver, owner);
         return shares; 
     }
@@ -319,16 +314,23 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
             override
             external 
             nonReentrant 
+            updateBoostBefore(owner)
             updateReward(owner)
+            updateBoostAfter(owner)
             returns (uint256 assets) {
-        assets = shares / avgMult(owner);
+        assets = shares;
         _withdraw(assets, shares, receiver, owner);
         return assets;
     }
 
     // Withdraw all to caller
-    function exit() external nonReentrant updateReward(msg.sender) returns (uint256 reward) {
-        _withdraw(accounts[msg.sender].assets, accounts[msg.sender].shares, msg.sender, msg.sender);
+    function exit() external
+            nonReentrant 
+            updateBoostBefore(msg.sender)
+            updateReward(msg.sender) 
+            updateBoostAfter(msg.sender) 
+            returns (uint256 reward) {
+        _withdraw(accounts[msg.sender].assets, accounts[msg.sender].shares - accounts[msg.sender].sharesBoost, msg.sender, msg.sender);
         return getReward();
     }
 
@@ -338,6 +340,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         require(assets > 0, "Cannot withdraw 0");
         require(owner == msg.sender, "Caller must be the owner");
         require(accounts[owner].assets >= assets, "Owner must have enought assets");
+        require(accounts[owner].shares - accounts[owner].sharesBoost >= shares, "Owner must have enought available shares.");
         
         // Remove LP Tokens (assets)
         total.managedAssets -= assets;
@@ -368,6 +371,25 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         IERC20(assetToken).safeTransferFrom(msg.sender, address(this), assets);
         emit Deposit(msg.sender, address(this), assets, shares);
     }
+    
+    function _updateBoost(address owner) internal {
+        uint256 boost = 0;
+        uint256 oldBoost = accounts[owner].sharesBoost;
+
+        if (getNewoShare(owner) >= getNewoLocked(owner))
+            boost = (accounts[owner].shares - oldBoost) * getMultiplier(owner);
+        if (boost > oldBoost) {
+            // Mint boost shares
+            total.supply += boost - oldBoost;
+            accounts[owner].shares += boost - oldBoost;
+        } else if (boost < oldBoost) {
+            // Burn boost shares
+            total.supply -= oldBoost - boost;
+            accounts[owner].shares -= oldBoost - boost;
+        }
+        accounts[owner].sharesBoost = boost;
+        emit BoostUpdated(owner, accounts[owner].shares, accounts[owner].sharesBoost);
+    }
 
     // Added to support recovering LP Rewards from other systems such as BAL to be distributed to holders
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external onlyOwner {
@@ -375,7 +397,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         IERC20(tokenAddress).safeTransfer(owner, tokenAmount);
         emit Recovered(tokenAddress, tokenAmount);
     }
-
+    
     /* ========== MODIFIERS ========== */
 
     modifier updateReward(address owner) {
@@ -388,10 +410,21 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         _;
     }
 
+    modifier updateBoostBefore(address owner) {
+        _updateBoost(owner);
+        _;
+    }
+    
+    modifier updateBoostAfter(address owner) {
+        _;
+        _updateBoost(owner);
+    }
+
     /* ========== EVENTS ========== */
 
     event RewardAdded(uint256 reward);
     event RewardPaid(address indexed user, uint256 reward);
     event RewardsDurationUpdated(uint256 newDuration);
     event Recovered(address token, uint256 amount);
+    event BoostUpdated(address indexed owner, uint256 totalShares, uint256 boostShares);
 }
