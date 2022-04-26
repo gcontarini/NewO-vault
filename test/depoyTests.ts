@@ -43,8 +43,8 @@ describe("Deployment tests", function () {
         xNewo = await XNewo.deploy(ownerAddress, lPAddress, newoTokenAddress, veNewo.address, ownerAddress);
     })
 
-   describe("Name, symbol and decimals tests", () => {
-    it("veToken should have correct name and symbol and decimal", async function () {
+   describe("Name, symbol and decimals tests", async () => {
+    it("veToken should have correct name and symbol and decimal", async () => {
         const name = await veNewo.name();
         const symbol = await veNewo.symbol();
         const decimals = await veNewo.decimals();
@@ -54,7 +54,7 @@ describe("Deployment tests", function () {
         expect(decimals, "18")
     });
 
-    it("xNewo should have correct name and symbol and decimal", async function () {
+    it("xNewo should have correct name and symbol and decimal", async () => {
         const name = await xNewo.name();
         const symbol = await xNewo.symbol();
         const decimals = await xNewo.decimals();
@@ -63,5 +63,24 @@ describe("Deployment tests", function () {
         expect(symbol, "xNWO")
         expect(decimals, "18")
     });
-   }) 
+   })
+
+   describe("Testing ownership of the contracts", () => {
+    
+    it("veVault should have the right owner", async () => {
+        const ownerAddress = await owner.getAddress()
+        const Owner = await veNewo.owner();
+        expect(Owner, ownerAddress);
+    })
+    it("xNewOVault should have the right owner", async () => {
+        const ownerAddress = await owner.getAddress()
+        const Owner = await xNewo.owner();
+        expect(Owner, ownerAddress);
+    })
+    it("Rewards should have the right owner", async () => {
+        const ownerAddress = await owner.getAddress()
+        const Owner = await rewards.owner();
+        expect(Owner, ownerAddress);
+    })
+   })
 });
