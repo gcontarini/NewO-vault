@@ -376,7 +376,8 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     function _updateBoost(address owner) internal {
         uint256 oldShares = accounts[owner].shares;
         uint256 newShares = oldShares;
-        console.log(accounts[owner].assets, getMultiplier(owner));
+
+        console.log(accounts[owner].assets, getNewoLocked(owner), getNewoShare(owner));
 
         if (getNewoShare(owner) >= getNewoLocked(owner))
             newShares = accounts[owner].assets * getMultiplier(owner) / PRECISION;
