@@ -71,7 +71,7 @@ async function main() {
 	const signer = await ethers.getSigner(testAccount);
 
 	// Transfer NewO to Rewards Contract
-	const numberOfTokens = ethers.utils.parseUnits('0.00000000000001', 18);
+	const numberOfTokens = ethers.utils.parseUnits('0.00000001', 18);
 	await newoToken.connect(signer).transfer(rewardNewO.address, numberOfTokens);
 	
 	// Notify Reward amount (the caller must be rewardDistribution)

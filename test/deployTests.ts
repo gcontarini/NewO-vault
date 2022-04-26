@@ -45,9 +45,9 @@ describe("Deployment tests", function () {
             const symbol = await veNewo.symbol();
             const decimals = await veNewo.decimals();
             
-            expect(name, "veNewO")
-            expect(symbol, "veNWO")
-            expect(decimals, "18")
+            expect(name).to.equal("veNewO")
+            expect(symbol).to.equal("veNWO")
+            expect(decimals).to.equal(18)
         });
 
         it("xNewo should have correct name and symbol and decimal", async () => {
@@ -55,9 +55,9 @@ describe("Deployment tests", function () {
             const symbol = await xNewo.symbol();
             const decimals = await xNewo.decimals();
             
-            expect(name, "xNewO")
-            expect(symbol, "xNWO")
-            expect(decimals, "18")
+            expect(name).to.equal("xNewO")
+            expect(symbol).to.equal("xNWO")
+            expect(decimals).to.equal(18)
         });
     })
 
@@ -65,44 +65,46 @@ describe("Deployment tests", function () {
         it("veVault should have the right owner", async () => {
             const ownerAddress = await owner.getAddress();
             const Owner = await veNewo.owner();
-            expect(Owner, ownerAddress);
+            expect(Owner).to.equal(ownerAddress);
         })
 
         it("xNewOVault should have the right owner", async () => {
             const ownerAddress = await owner.getAddress()
             const Owner = await xNewo.owner();
-            expect(Owner, ownerAddress);
+            expect(Owner).to.equal(ownerAddress);
         })
         
         it("Rewards should have the right owner", async () => {
             const ownerAddress = await owner.getAddress()
             const Owner = await rewards.owner();
-            expect(Owner, ownerAddress);
+            expect(Owner).to.equal(ownerAddress);
         })
     })
 
    describe("Testing assets", () => {
        it("veVault should have Newo as underlying asset", async () => {
            const assetAddress = await veNewo.asset()
-           expect(assetAddress, newoTokenAddress);
+           expect(assetAddress).to.equal(newoTokenAddress);
        })
        it("lpVault should have sushi Lp token as underlying asset", async () => {
            const assetAddress = await xNewo.asset();
-           expect(assetAddress, lPAddress);
+           expect(assetAddress).to.equal(lPAddress);
        })
    })
 
    describe("Testing Rewards contract constructor", () => {
        it("Rewards should look to veVault contract", async () => {
            const address = await rewards.getVaultAddress();
-           expect(address, veNewo.address);
+           expect(address).to.equal(veNewo.address);
        })
        it("Rewards distribuition should come from treasury", async () => {
-           const treasuryAddress = await treasury.getAddress(); 
-           expect(rewards.rewardsDistribution(), treasuryAddress)
+           const treasuryAddress = await treasury.getAddress();
+           const rewardAddress = await rewards.rewardsDistribution();
+           expect(rewardAddress).to.equal(treasuryAddress)
        })
        it("Rewards should be in Newo", async () => {
-           expect(rewards.rewardsToken(), newoTokenAddress);
+           const rewardAddress = await rewards.rewardsToken();
+           expect(rewardAddress).to.equal(newoTokenAddress);
        })
    })
 });
