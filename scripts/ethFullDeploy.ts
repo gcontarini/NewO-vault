@@ -71,16 +71,15 @@ async function main() {
 	const signer = await ethers.getSigner(testAccount);
 
 	// Transfer NewO to Rewards Contract
-	const numberOfTokens = ethers.utils.parseUnits('1.0', 18);
+	const numberOfTokens = ethers.utils.parseUnits('0.00000000000001', 18);
 	await newoToken.connect(signer).transfer(rewardNewO.address, numberOfTokens);
 	
 	// Notify Reward amount (the caller must be rewardDistribution)
 	await rewardNewO.connect(deployer).notifyRewardAmount(numberOfTokens);
 
 	// Lock Newo for veNewo
-	const newoAmount = await newoToken.balanceOf(signer.address);
 	await newoToken.connect(signer).approve(veNewo.address, numberOfTokens, txOpt2);
-	
+
 	const years3 = 94608000;
 	const veLockTx = await veNewo.connect(signer)["deposit(uint256,address,uint256)"](numberOfTokens, signer.address, years3, txOpt2);
 	console.log("\nveLock tx: ", veLockTx.hash);
@@ -88,12 +87,19 @@ async function main() {
 	console.log("\nveBalance:", await veNewo.balanceOf(signer.address));
 	
 	// Notify reward contract about deposit
-	await rewardNewO.connect(signer).notifyDeposit(txOpt2); // Check what is going wrong about it.
+	await rewardNewO.connect(signer).notifyDeposit(txOpt2);
 
 	// Calculat how much LP tokens it can stake
-	const depositAmount = await lp.balanceOf(testAccount);
+	const depositAmount = await lp.balanceOf(signer.address);
 	console.log("\nLP balance:", depositAmount);
 
+	// Get Newo multiplier calculated by the lpVault
+	const newoLpShare = await xNewo.getNewoShare(signer.address);
+	const xNewoMultiplier = await xNewo.getMultiplier(signer.address);
+	const newoLockedLp = await xNewo.getNewoLocked(signer.address);
+
+	console.log("\nNewo stacked on the Lp :" , newoLpShare, "\nMultiplier :", xNewoMultiplier, "\nNewo Locked on veVault: ", newoLockedLp);
+	
 	// Make allowance for LP tokens
 	lp.connect(signer).approve(xNewo.address, depositAmount, txOpt2);
 	// Stake LP to get xNewO

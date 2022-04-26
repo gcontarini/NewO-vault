@@ -11,6 +11,8 @@ import "./interfaces/IUniswapV2Pair.sol";
 import "./interfaces/IVeVault.sol";
 import "./interfaces/IERC4626.sol";
 
+import "hardhat/console.sol";
+
 abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRecipient, IERC4626 {
     using SafeERC20 for IERC20;
 
@@ -260,7 +262,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         // to make sure that there is no division by zero
         if(assetBalance == 0)
             return 1;
-        return veToken.balanceOf(owner) / assetBalance;   
+        return veToken.balanceOf(owner) / assetBalance;
     }
 
     function getNewoLocked(address owner) public view returns (uint256) {
@@ -363,7 +365,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         // Lp tokens
         total.managedAssets += assets;
         accounts[receiver].assets += assets;
-        
+
         // Vault shares
         total.supply += shares;
         accounts[receiver].shares += shares;
@@ -377,7 +379,11 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         uint256 oldBoost = accounts[owner].sharesBoost;
 
         if (getNewoShare(owner) >= getNewoLocked(owner))
+        {
+            console.log("Boost");
             boost = (accounts[owner].shares - oldBoost) * getMultiplier(owner);
+            console.log(boost, accounts[owner].shares, oldBoost, getMultiplier(owner));
+        }
         if (boost > oldBoost) {
             // Mint boost shares
             total.supply += boost - oldBoost;
