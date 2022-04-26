@@ -9,8 +9,6 @@ import "./interfaces/IVeVault.sol";
 import "./RewardsDistributionRecipient.sol";
 import "./Pausable.sol";
 
-import "hardhat/console.sol";
-
 contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 

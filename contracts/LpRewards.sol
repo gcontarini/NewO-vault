@@ -380,13 +380,13 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         if (getNewoShare(owner) >= getNewoLocked(owner))
             newShares = accounts[owner].assets * getMultiplier(owner) / PRECISION;
         if (newShares > oldShares) {
-            // Mint newShares shares
+            // Mint boost shares
             uint256 diff = newShares - oldShares;
             total.supply += diff;
             accounts[owner].sharesBoost = diff;
             accounts[owner].shares = newShares;
         } else if (newShares < oldShares) {
-            // Burn newShares shares
+            // Burn boost shares
             uint256 diff = oldShares - newShares;
             total.supply -= diff;
             accounts[owner].sharesBoost = diff;

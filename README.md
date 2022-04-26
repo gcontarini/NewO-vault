@@ -2,6 +2,9 @@
 New vault system with veTokens and multiple rewards distribuition tokens.
 
 # Instructions to run
+Create a .env file
+`echo ETH_MAINFORK=<INSERT URL PROVIDER WITH YOUR KEYS> >> .env`
+
 First install npm dependecies <br>
 `npm install`
 
