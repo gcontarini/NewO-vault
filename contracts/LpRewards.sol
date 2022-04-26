@@ -254,8 +254,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         uint112 reserve0; uint112 reserve1; uint32 timestamp;
 
         (reserve0, reserve1, timestamp) = IUniswapV2Pair(assetToken).getReserves();
-        return IUniswapV2Pair(assetToken).balanceOf(owner)
-                * reserve1 
+        return accounts[owner].assets * reserve1 
                 / IUniswapV2Pair(assetToken).totalSupply();
     }
 
@@ -387,14 +386,15 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
             total.supply += diff;
             accounts[owner].sharesBoost = diff;
             accounts[owner].shares = newShares;
+            emit BoostUpdated(owner, accounts[owner].shares, accounts[owner].sharesBoost);
         } else if (newShares < oldShares) {
             // Burn boost shares
             uint256 diff = oldShares - newShares;
             total.supply -= diff;
             accounts[owner].sharesBoost = diff;
             accounts[owner].shares = newShares;
+            emit BoostUpdated(owner, accounts[owner].shares, accounts[owner].sharesBoost);
         }
-        emit BoostUpdated(owner, accounts[owner].shares, accounts[owner].sharesBoost);
     }
 
     // Added to support recovering LP Rewards from other systems such as BAL to be distributed to holders
