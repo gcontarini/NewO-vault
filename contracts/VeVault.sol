@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
@@ -11,6 +11,12 @@ import "./interfaces/IERC4626.sol";
 import "hardhat/console.sol";
 
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+
+error Unauthorized();
+error InsufficientBalance(uint256 available, uint256 required);
+error NotWhitelisted();
+error FundsInGracePeriod();
+error FundsNotUnlocked();
 
 abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     using SafeERC20 for IERC20;
@@ -308,15 +314,15 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     /* ========== ERC20 NOT ALLOWED FUNCTIONS ========== */
 
     function transfer(address, uint256) external pure override returns (bool) {
-        revert("Transfer not allowed for this token.");
+        revert Unauthorized();
     }
 
     function approve(address, uint256) external pure override returns (bool) {
-        revert("Approve not allowed for this token.");
+        revert Unauthorized();
     }
 
     function transferFrom(address, address, uint256) external pure override returns (bool) {
-        revert("Transfer not allowed for this token.");
+        revert Unauthorized();
     }
 
     /* ========== PURE FUNCTIONS ========== */
@@ -367,7 +373,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      */
     function deposit(uint256 assets, address receiver, uint256 lockTime)
             external 
-            nonReentrant 
+            nonReentrant
             notPaused 
             returns (uint256 shares) {
         return _deposit(assets, receiver, lockTime);
@@ -462,14 +468,19 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     }
     
     function changeWhitelistRecoverERC20(address tokenAddress, bool flag) external onlyOwner {
-        require(tokenAddress != _assetTokenAddress, "Cannot whitelist asset token.");
+        // require(tokenAddress != _assetTokenAddress, "Cannot whitelist asset token.");
+        if(tokenAddress == _assetTokenAddress)
+            revert Unauthorized();
         whitelistRecoverERC20[tokenAddress] = flag;
         emit ChangeWhitelistERC20(tokenAddress, flag);
     }
 
     // Added to support recovering LP Rewards from other systems such as BAL to be distributed to holders
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external onlyOwner {
-        require(whitelistRecoverERC20[tokenAddress] == true, "Can only recover ERC20 whitelisted.");
+        
+        // require(whitelistRecoverERC20[tokenAddress] == true, "Can only recover ERC20 whitelisted.");
+        if(whitelistRecoverERC20[tokenAddress] == false)
+            revert NotWhitelisted();
         IERC20(tokenAddress).safeTransfer(owner, tokenAmount);
         emit Recovered(tokenAddress, tokenAmount);
     }
@@ -482,18 +493,20 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     /* ========== INTERNAL FUNCTIONS ========== */
     
     function _deposit(uint256 assets, address receiver, uint256 lockTime) internal returns (uint256 shares) {
-        require(assets > 0, "Cannot deposit 0");
-        require(msg.sender == receiver, "Cannot deposit for another address.");
-        require(lockTime >= _lockTimer.min, "Lock time is less than min.");
-        require(lockTime <= _lockTimer.max, "Lock time is more than max.");
+        if (assets <= 0 || msg.sender != receiver || lockTime < _lockTimer.min || lockTime > _lockTimer.max)
+            revert Unauthorized();
+        
+        // require(assets > 0, "Cannot deposit 0");
+        // require(msg.sender == receiver, "Cannot deposit for another address.");
+        // require(lockTime >= _lockTimer.min, "Lock time is less than min.");
+        // require(lockTime <= _lockTimer.max, "Lock time is more than max.");
 
         // Update lockTime
         uint256 unlockTime = block.timestamp + lockTime;
-        if (_unlockDate[receiver] < unlockTime) {
+        if (_unlockDate[receiver] < unlockTime)
             _unlockDate[receiver] = unlockTime;
-        } else {
+        else
             _unlockDate[receiver] += lockTime;
-        }
         
         shares = convertToShares(assets, lockTime);
         
@@ -512,21 +525,36 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     }
     
     function _withdraw(uint256 assets, address receiver, address owner) internal returns (uint256 shares) {
-        require(owner != address(0), "Cannot withdraw for null address");
-        require(_assetBalances[owner] >= assets, "Address has not enought assets.");
+        // require(owner != address(0), "Cannot withdraw for null address");
+        if (owner == address(0))
+            revert Unauthorized();
+        // require(_assetBalances[owner] >= assets, "Address has not enought assets.");
+        if (_assetBalances[owner] < assets)
+            revert InsufficientBalance({
+                available: _assetBalances[owner],
+                required: assets
+            });
+        
         if (msg.sender != owner) {
-            require(receiver == owner, "Must withdraw to owner address.");
+            // require(receiver == owner, "Must withdraw to owner address.");
+            if(receiver != owner)
+                revert Unauthorized();
             // Must check what happens for negative value in the block.timestamp
-            if (_lockTimer.enforce) {
-                require(block.timestamp - _unlockDate[owner] > _penalty.gracePeriod, "Funds in grace period.");
-            }
+            // require(block.timestamp - _unlockDate[owner] > _penalty.gracePeriod, "Funds in grace period.");
+            if (_lockTimer.enforce && (block.timestamp - _unlockDate[owner] <= _penalty.gracePeriod))
+                revert FundsInGracePeriod();
         }
-        else if (_lockTimer.enforce) {
-            require(block.timestamp > _unlockDate[owner], "Funds not unlocked yet.");
-        }
+        // require(block.timestamp > _unlockDate[owner], "Funds not unlocked yet.");
+        else if (_lockTimer.enforce && block.timestamp <= _unlockDate[owner])
+            revert FundsNotUnlocked();
         
         shares = assets * avgVeMult(owner) / PRECISION;
-        require(_shareBalances[owner] >= shares, "Not enought shares to burn.");
+        // require(_shareBalances[owner] >= shares, "Not enought shares to burn.");
+        if (_shareBalances[owner] < shares)
+            revert InsufficientBalance({
+                available: _shareBalances[owner],
+                required: shares
+            });
         
         // Pay reward to caller
         uint256 amountPenalty = 0;
@@ -561,7 +589,12 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         amountPenalty = (assets * penaltyAmount) / 100;
 
         // Makes sense????
-        require(_assetBalances[owner] >= amountPenalty , "Not enought funds to pay penalty.");
+        // require(_assetBalances[owner] >= amountPenalty , "Not enought funds to pay penalty.");
+        if(_assetBalances[owner] < amountPenalty)
+            revert InsufficientBalance({
+                available: _assetBalances[owner],
+                required: amountPenalty
+            });
 
         _totalManagedAssets -= amountPenalty;
         _assetBalances[owner] -= amountPenalty;

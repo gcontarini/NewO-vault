@@ -149,7 +149,7 @@ describe("veNewo tests", function () {
                         address(addr1),
                         days(30)
                     )
-            ).to.be.revertedWith("Lock time is less than min.");
+            ).to.be.revertedWith("Unauthorized()");
         });
     });
 
@@ -164,7 +164,7 @@ describe("veNewo tests", function () {
                         address(addr1),
                         years(4)
                     )
-            ).to.be.revertedWith("Lock time is more than max.");
+            ).to.be.revertedWith("Unauthorized()");
         });
     });
 
@@ -205,7 +205,7 @@ describe("veNewo tests", function () {
                             address(addr1),
                             address(addr1)
                         )
-                ).to.be.revertedWith("Funds not unlocked yet.");
+                ).to.be.revertedWith("FundsNotUnlocked()");
             });
             it("the depositor should be able to exit the asset after unlock day", async () => {
                 await timeTravel(restOfThePeriod);
@@ -274,7 +274,7 @@ describe("veNewo tests", function () {
                             address(addr1),
                             address(addr1)
                         )
-                ).to.be.revertedWith("Funds in grace period.");
+                ).to.be.revertedWith("FundsInGracePeriod()");
             });
 
             it("other user should be able to kick out the user after the grace period", async () => {
