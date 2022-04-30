@@ -336,14 +336,10 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * Returns the average ve multipler applied to an address
      */
     function avgVeMult(address owner) internal view returns (uint256) {
-<<<<<<< HEAD
-        console.log(_shareBalances[owner], _assetBalances[owner]);
-=======
         // Protect against zero division
         if (_assetBalances[owner] == 0) {
             return 0;
         }
->>>>>>> 4f2a725ee670e561f9c2da67d822ec154f1f5384
         return _shareBalances[owner] * PRECISION / _assetBalances[owner];
     }
 
@@ -521,14 +517,6 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         if (msg.sender != owner) {
             amountPenalty = _payPenalty(owner, assets);
         }
-<<<<<<< HEAD
-
-        // This can be tricker, test it carefully
-        shares = assets * avgVeMult(owner) / PRECISION;
-        console.log(shares, assets, avgVeMult(owner), _shareBalances[owner]);
-        require(_shareBalances[owner] >= shares, "Not enought shares to burn.");
-=======
->>>>>>> 4f2a725ee670e561f9c2da67d822ec154f1f5384
         assets -= amountPenalty;
 
         // Burn ve tokens
