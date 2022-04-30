@@ -46,9 +46,9 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
 
     // Constants
     uint256 private constant SEC_IN_DAY = 86400;
-    uint256 private constant PRECISION = 100;
-    // This value should be 1e17 but we are using 100 as precision
-    uint256 private constant MULT_FACTOR = 1e15;
+    uint256 private constant PRECISION = 1e2;
+    // This value should be 1e17 but we are using 1e2 as precision
+    uint256 private constant MULT_FACTOR = (1e17 / PRECISION);
     uint256 private constant COEFF_1 = 154143856;
     uint256 private constant COEFF_2 = 74861590400;
     uint256 private constant COEFF_3 = 116304927000000;
@@ -334,6 +334,10 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * Returns the average ve multipler applied to an address
      */
     function avgVeMult(address owner) internal view returns (uint256) {
+        // Protect against zero division
+        if (_assetBalances[owner] == 0) {
+            return 0;
+        }
         return _shareBalances[owner] * PRECISION / _assetBalances[owner];
     }
 
