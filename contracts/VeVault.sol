@@ -52,7 +52,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     uint256 private constant COEFF_1 = 154143856;
     uint256 private constant COEFF_2 = 74861590400;
     uint256 private constant COEFF_3 = 116304927000000;
-    uint256 private constant COEFF_4 = 9002656460000000;
+    uint256 private constant COEFF_4 = 90026564600000000;
     
     /* ========== CONSTRUCTOR ========== */
 
@@ -530,7 +530,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
 
     function _payPenalty(address owner, uint256 assets) internal returns (uint256 amountPenalty) {
         uint256 penaltyAmount = _penalty.minPerc 
-                        + (((_unlockDate[owner] - block.timestamp)
+                        + (((block.timestamp - _unlockDate[owner])
                             / _lockTimer.epoch)
                         * _penalty.stepPerc);
 
