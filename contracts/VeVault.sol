@@ -547,7 +547,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
 
     function _payPenalty(address owner, uint256 assets) internal returns (uint256 amountPenalty) {
         uint256 penaltyAmount = _penalty.minPerc 
-                        + (((block.timestamp - _unlockDate[owner])
+                        + (((block.timestamp - (_unlockDate[owner] + _penalty.gracePeriod))
                             / _lockTimer.epoch)
                         * _penalty.stepPerc);
 
