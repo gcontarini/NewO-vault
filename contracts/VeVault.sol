@@ -8,6 +8,8 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./Pausable.sol";
 import "./interfaces/IERC4626.sol";
 
+import "hardhat/console.sol";
+
 abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     using SafeERC20 for IERC20;
 
@@ -334,6 +336,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * Returns the average ve multipler applied to an address
      */
     function avgVeMult(address owner) internal view returns (uint256) {
+        console.log(_shareBalances[owner], _assetBalances[owner]);
         return _shareBalances[owner] * PRECISION / _assetBalances[owner];
     }
 
@@ -511,6 +514,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
 
         // This can be tricker, test it carefully
         shares = assets * avgVeMult(owner) / PRECISION;
+        console.log(shares, assets, avgVeMult(owner), _shareBalances[owner]);
         require(_shareBalances[owner] >= shares, "Not enought shares to burn.");
         assets -= amountPenalty;
 
