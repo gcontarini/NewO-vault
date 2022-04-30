@@ -10,6 +10,8 @@ import "./interfaces/IERC4626.sol";
 
 import "hardhat/console.sol";
 
+import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+
 abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     using SafeERC20 for IERC20;
 
@@ -472,6 +474,11 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         emit Recovered(tokenAddress, tokenAmount);
     }
 
+    function recoverERC721(address tokenAddress, uint256 tokenId) external onlyOwner {
+        IERC721(tokenAddress).safeTransferFrom(address(this), owner, tokenId);
+        emit RecoveredNFT(tokenAddress, tokenId);
+    }
+
     /* ========== INTERNAL FUNCTIONS ========== */
     
     function _deposit(uint256 assets, address receiver, uint256 lockTime) internal returns (uint256 shares) {
@@ -570,5 +577,6 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     event Burn(address indexed user, uint256 shares);
     event Mint(address indexed user, uint256 shares);
     event Recovered(address token, uint256 amount);
+    event RecoveredNFT(address tokenAddress, uint256 tokenId);
     event ChangeWhitelistERC20(address indexed tokenAddress, bool whitelistState);
 }
