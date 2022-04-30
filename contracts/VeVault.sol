@@ -55,6 +55,9 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     uint256 private constant COEFF_2 = 74861590400;
     uint256 private constant COEFF_3 = 116304927000000;
     uint256 private constant COEFF_4 = 90026564600000000;
+
+    // Only allow recoverERC20 from this list
+    mapping(address => bool) public whitelistRecoverERC20;
     
     /* ========== CONSTRUCTOR ========== */
 
@@ -455,10 +458,16 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     function changeMaxPenalty(uint256 newMaxPenalty) external onlyOwner {
         _penalty.maxPerc = newMaxPenalty;
     }
+    
+    function changeWhitelistRecoverERC20(address tokenAddress, bool flag) external onlyOwner {
+        require(tokenAddress != _assetTokenAddress, "Cannot whitelist asset token.");
+        whitelistRecoverERC20[tokenAddress] = flag;
+        emit ChangeWhitelistERC20(tokenAddress, flag);
+    }
 
     // Added to support recovering LP Rewards from other systems such as BAL to be distributed to holders
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external onlyOwner {
-        require(tokenAddress != _assetTokenAddress, "Cannot withdraw the staking token");
+        require(whitelistRecoverERC20[tokenAddress] == true, "Can only recover ERC20 whitelisted.");
         IERC20(tokenAddress).safeTransfer(owner, tokenAmount);
         emit Recovered(tokenAddress, tokenAmount);
     }
@@ -561,4 +570,5 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     event Burn(address indexed user, uint256 shares);
     event Mint(address indexed user, uint256 shares);
     event Recovered(address token, uint256 amount);
+    event ChangeWhitelistERC20(address indexed tokenAddress, bool whitelistState);
 }
