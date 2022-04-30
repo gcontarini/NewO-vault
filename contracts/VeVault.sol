@@ -506,16 +506,15 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         else if (_lockTimer.enforce) {
             require(block.timestamp > _unlockDate[owner], "Funds not unlocked yet.");
         }
-
+        
+        shares = assets * avgVeMult(owner) / PRECISION;
+        require(_shareBalances[owner] >= shares, "Not enought shares to burn.");
+        
         // Pay reward to caller
         uint256 amountPenalty = 0;
         if (msg.sender != owner) {
             amountPenalty = _payPenalty(owner, assets);
         }
-
-        // This can be tricker, test it carefully
-        shares = assets * avgVeMult(owner) / PRECISION;
-        require(_shareBalances[owner] >= shares, "Not enought shares to burn.");
         assets -= amountPenalty;
 
         // Burn ve tokens
