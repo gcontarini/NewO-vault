@@ -48,9 +48,9 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
 
     // Constants
     uint256 private constant SEC_IN_DAY = 86400;
-    uint256 private constant PRECISION = 100;
-    // This value should be 1e17 but we are using 100 as precision
-    uint256 private constant MULT_FACTOR = 1e15;
+    uint256 private constant PRECISION = 1e2;
+    // This value should be 1e17 but we are using 1e2 as precision
+    uint256 private constant MULT_FACTOR = (1e17 / PRECISION);
     uint256 private constant COEFF_1 = 154143856;
     uint256 private constant COEFF_2 = 74861590400;
     uint256 private constant COEFF_3 = 116304927000000;
@@ -336,7 +336,14 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * Returns the average ve multipler applied to an address
      */
     function avgVeMult(address owner) internal view returns (uint256) {
+<<<<<<< HEAD
         console.log(_shareBalances[owner], _assetBalances[owner]);
+=======
+        // Protect against zero division
+        if (_assetBalances[owner] == 0) {
+            return 0;
+        }
+>>>>>>> 4f2a725ee670e561f9c2da67d822ec154f1f5384
         return _shareBalances[owner] * PRECISION / _assetBalances[owner];
     }
 
@@ -505,17 +512,23 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         else if (_lockTimer.enforce) {
             require(block.timestamp > _unlockDate[owner], "Funds not unlocked yet.");
         }
-
+        
+        shares = assets * avgVeMult(owner) / PRECISION;
+        require(_shareBalances[owner] >= shares, "Not enought shares to burn.");
+        
         // Pay reward to caller
         uint256 amountPenalty = 0;
         if (msg.sender != owner) {
             amountPenalty = _payPenalty(owner, assets);
         }
+<<<<<<< HEAD
 
         // This can be tricker, test it carefully
         shares = assets * avgVeMult(owner) / PRECISION;
         console.log(shares, assets, avgVeMult(owner), _shareBalances[owner]);
         require(_shareBalances[owner] >= shares, "Not enought shares to burn.");
+=======
+>>>>>>> 4f2a725ee670e561f9c2da67d822ec154f1f5384
         assets -= amountPenalty;
 
         // Burn ve tokens
