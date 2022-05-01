@@ -214,7 +214,6 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
 
     function getReward() public nonReentrant updateReward(msg.sender) returns (uint256 reward) {
         reward = accounts[msg.sender].rewards;
-        // require(reward > 0, "No reward claimable");
         if(reward <= 0)
             revert UnauthorizedClaim();
         accounts[msg.sender].rewards = 0;
@@ -241,7 +240,6 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         // very high values of rewardRate in the earned and rewardsPerToken functions;
         // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
         uint balance = IERC20(rewardsToken).balanceOf(address(this));
-        // require(rewardRate <= balance / rewardsDuration, "Provided reward too high");
         if(rewardRate > balance / rewardsDuration)
             revert RewardTooHigh({
                 allowed: balance / rewardsDuration,
@@ -253,11 +251,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     }
 
     function setRewardsDuration(uint256 _rewardsDuration) external onlyOwner {
-        // require(
-        //     block.timestamp > periodFinish,
-        //     "Previous rewards period must be complete before changing the duration for the new period"
-        // );
-        if(block.timestamp <= periodFinish)
+        if (block.timestamp <= periodFinish)
             revert Unauthorized();
         rewardsDuration = _rewardsDuration;
         emit RewardsDurationUpdated(rewardsDuration);
@@ -357,11 +351,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
             || accounts[owner].assets < assets 
             || (accounts[owner].shares - accounts[owner].sharesBoost) < shares)
             revert Unauthorized();
-        // require(assets > 0, "Cannot withdraw 0");
-        // require(owner == msg.sender, "Caller must be the owner");
-        // require(accounts[owner].assets >= assets, "Owner must have enought assets");
-        // require(accounts[owner].shares - accounts[owner].sharesBoost >= shares, "Owner must have enought available shares.");
-        
+    
         // Remove LP Tokens (assets)
         total.managedAssets -= assets;
         accounts[owner].assets -= assets;
@@ -377,8 +367,6 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     }
     
     function _deposit(uint256 assets, uint256 shares, address receiver) internal {
-        // require(assets > 0, "Cannot stake 0");
-        // require(receiver == msg.sender, "Receiver must be caller");
         if(assets <= 0 || receiver != msg.sender)
             revert Unauthorized();
         // Lp tokens
