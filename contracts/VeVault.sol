@@ -53,21 +53,21 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
 
     LockTimer internal _lockTimer;
     Penalty internal _penalty;
+    
+    // Only allow recoverERC20 from this list
+    mapping(address => bool) public whitelistRecoverERC20;
 
     // Constants
     uint256 private constant SEC_IN_DAY = 86400;
     uint256 private constant PRECISION = 1e2;
     // This value should be 1e17 but we are using 1e2 as precision
-    uint256 private constant MULT_FACTOR = (1e17 / PRECISION);
+    uint256 private constant CONVERT_PRECISION  = 1e17 / PRECISION;
     // Polynomial coefficients used in veMult function
-    uint256 private constant COEFF_1 = 154143856;
-    uint256 private constant COEFF_2 = 74861590400;
-    uint256 private constant COEFF_3 = 116304927000000;
-    uint256 private constant COEFF_4 = 90026564600000000;
+    uint256 private constant K_3 = 154143856;
+    uint256 private constant K_2 = 74861590400;
+    uint256 private constant K_1 = 116304927000000;
+    uint256 private constant K = 90026564600000000;
 
-    // Only allow recoverERC20 from this list
-    mapping(address => bool) public whitelistRecoverERC20;
-    
     /* ========== CONSTRUCTOR ========== */
 
     constructor(string memory name_, string memory symbol_) {
@@ -316,14 +316,14 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * Granularity is lost with lockTime between days
      * This functions implements the following polynomial:
      * f(x) = x^3 * 1.54143856e-09 - x^2 * 7.48615904e-07 + x * 1.16304927e-03 + 9.00265646e-01
+     * f(x) = x^3 * K_3 - x^2 * K_2 + x * K_1 + K
      */
     function veMult(uint256 lockTime) internal pure returns (uint256) {
         return (
-            (((lockTime / SEC_IN_DAY) ** 3) * COEFF_1)
-            + ((lockTime / SEC_IN_DAY) * COEFF_3)
-            + (COEFF_4)
-            - (((lockTime / SEC_IN_DAY) ** 2) * COEFF_2)
-            ) / MULT_FACTOR;
+            (((lockTime / SEC_IN_DAY) ** 3) * K_3)
+            + ((lockTime / SEC_IN_DAY) * K_1) + K
+            - (((lockTime / SEC_IN_DAY) ** 2) * K_2)
+            ) / CONVERT_PRECISION;
     }
     
     /**

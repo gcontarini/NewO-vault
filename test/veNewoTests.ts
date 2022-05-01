@@ -1,14 +1,7 @@
 import * as dotenv from "dotenv";
 import { expect } from "chai";
-import { ethers } from "hardhat";
 import hre = require("hardhat");
-import {
-    VeNewO,
-    VeNewO__factory,
-    XNewO__factory,
-    Rewards__factory,
-    Rewards,
-} from "../typechain";
+import { ethers } from "hardhat";
 import { Signer, Contract, BigNumberish, BigNumber } from "ethers";
 
 import newOrderABI from "../abi/NewOrderERC20.json";
@@ -20,7 +13,16 @@ import {
     years,
     timeTravel,
     formatToken,
+    assetBalance,
 } from "./utils";
+import {
+    VeNewO,
+    VeNewO__factory,
+    XNewO__factory,
+    Rewards__factory,
+    Rewards,
+} from "../typechain";
+import { months } from "moment";
 
 const newoTokenAddress = "0x98585dFc8d9e7D48F0b1aE47ce33332CF4237D96";
 const TreasuryAddress = "0xdb36b23964FAB32dCa717c99D6AEFC9FB5748f3a";
@@ -45,6 +47,7 @@ describe("veNewo tests", function () {
 
     // this are functions that returns the balance
     let balanceNewo: (entity: any) => Promise<BigNumberish>;
+    let stakeBalanceNewo: (entity: any) => Promise<BigNumberish>;
     let balanceVeNewo: (entity: any) => Promise<BigNumberish>;
 
     let parseNewo: (input: number) => BigNumberish;
@@ -86,10 +89,10 @@ describe("veNewo tests", function () {
             params: [TreasuryAddress],
         });
 
-        // Grant more gas to this sucker
+        // Grant more gas to account 
         await hre.network.provider.send("hardhat_setBalance", [
             TreasuryAddress,
-            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "0xfffffffffffffffffffffffffffffffffffffffffffff"
         ]);
 
         treasury = await ethers.getSigner(TreasuryAddress);
@@ -99,18 +102,19 @@ describe("veNewo tests", function () {
         treasuryAddress = await treasury.getAddress();
 
         veNewo = await VeNewo.deploy(
-            ownerAddress, // address owner_,
-            newoTokenAddress, // address stakingToken_,
-            days(7), // uint256 gracePeriod_,
-            days(90), // uint256 minLockTime_,
-            years(3), // uint256 maxLockTime_,
-            2, // uint256 penaltyPerc_,
-            15, // uint256 maxPenalty_,
-            5, // uint256 minPenalty_,
-            86400 // uint256 epoch_
+            ownerAddress,       // address owner_,
+            newoTokenAddress,   // address stakingToken_,
+            days(7),            // uint256 gracePeriod_,
+            days(90),           // uint256 minLockTime_,
+            years(3),           // uint256 maxLockTime_,
+            2,                  // uint256 penaltyPerc_,
+            15,                 // uint256 maxPenalty_,
+            5,                  // uint256 minPenalty_,
+            86400               // uint256 epoch_
         );
         await veNewo.deployed();
         balanceVeNewo = balance(veNewo);
+        stakeBalanceNewo = assetBalance(veNewo);
         parseVeNewo = await parseToken(veNewo);
         formatVeNewo = await formatToken(veNewo);
 
@@ -133,13 +137,196 @@ describe("veNewo tests", function () {
             .connect(addr1)
             .approve(
                 address(veNewo),
-                "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                ethers.constants.MaxUint256 
             );
     };
 
-    /* impossible cases */
-    describe("Deposit it for 30 days", () => {
+    describe("Test view functions for simplest case.", async () => {        
         before(initialize);
+        it("asset equal to token address", async () => {
+            const tokenAddr = await veNewo.asset();
+
+            expect(tokenAddr).to.equal(newoTokenAddress);
+        });
+        it("totalAssets equal to zero", async () => {
+            const total = await veNewo.totalAssets();
+
+            expect(total).to.equal(0);
+        });
+        it("totalSupply equal to zero", async () => {
+            const total = await veNewo.totalSupply();
+
+            expect(total).to.equal(0);
+        });
+        it("balanceOf equal to zero", async () => {
+            const total = await veNewo.balanceOf(await addr1.getAddress());
+
+            expect(total).to.equal(0);
+        });
+        it("convertToShares equal to zero", async () => {
+            const total = await veNewo["convertToShares(uint256)"](0);
+
+            expect(total).to.equal(0);
+        });
+        it("convertToShares with time equal to zero", async () => {
+            const total = await veNewo["convertToShares(uint256,uint256)"](0, 0);
+
+            expect(total).to.equal(0);
+        });
+        it("convertToAssets equal to zero", async () => {
+            const total = await veNewo["convertToAssets(uint256)"](0);
+
+            expect(total).to.equal(0);
+        });
+        it("convertToAssets with time equal to zero", async () => {
+            const total = await veNewo["convertToAssets(uint256,uint256)"](0, 0);
+
+            expect(total).to.equal(0);
+        });
+        it("maxDeposit returns max uint256", async () => {
+            const total = await veNewo.maxDeposit(await addr1.getAddress());
+            
+            expect(total).to.equal(ethers.constants.MaxUint256);
+        });
+        it("previewDeposit with zero assets", async () => {
+            const total = await veNewo["previewDeposit(uint256)"](0);
+            
+            expect(total).to.equal(0);
+        });
+        it("previewDeposit with zero assets and zero time", async () => {
+            const total = await veNewo["previewDeposit(uint256,uint256)"](0, 0);
+            
+            expect(total).to.equal(0);
+        });
+        it("maxMint returns max uint256", async () => {
+            const total = await veNewo.maxMint(await addr1.getAddress());
+            
+            expect(total).to.equal(ethers.constants.MaxUint256);
+        });
+        it("previewMint with zero shares", async () => {
+            const total = await veNewo["previewMint(uint256)"](0);
+            
+            expect(total).to.equal(0);
+        });
+        it("previewMint with zero shares and zero time", async () => {
+            const total = await veNewo["previewMint(uint256,uint256)"](0, 0);
+            
+            expect(total).to.equal(0);
+        });
+        it("maxWithdraw with zero balance", async () => {
+            const total = await veNewo.maxWithdraw(await addr1.getAddress());
+            
+            expect(total).to.equal(0);
+        });
+        it("maxRedeem with zero balance", async () => {
+            const total = await veNewo.maxRedeem(await addr1.getAddress());
+            
+            expect(total).to.equal(0);
+        });
+        it("previewRedeem with zero shares", async () => {
+            const total = await veNewo["previewRedeem(uint256)"](0);
+            
+            expect(total).to.equal(0);
+        });
+        it("previewRedeem with zero shares and zero time", async () => {
+            const total = await veNewo["previewRedeem(uint256,uint256)"](0, 0);
+            
+            expect(total).to.equal(0);
+        });
+        it("assetBalanceOf with zero assets", async () => {
+            const total = await veNewo.assetBalanceOf(await addr1.getAddress());
+            
+            expect(total).to.equal(0);
+        });
+        it("allowance always equal to zero", async () => {
+            const total = await veNewo.allowance(await addr1.getAddress(), await addr2.getAddress());
+            
+            expect(total).to.equal(0);
+        });
+        it("unlockDate with zero assets", async () => {
+            const total = await veNewo.unlockDate(await addr1.getAddress());
+            
+            expect(total).to.equal(0);
+        });
+        it("gracePeriod setted in deployment", async () => {
+            const total = await veNewo.gracePeriod();
+            
+            expect(total).to.equal(days(7));
+        });
+        it("penaltyPercentage setted in deployment", async () => {
+            const total = await veNewo.penaltyPercentage();
+            
+            expect(total).to.equal(2);
+        });
+        it("minLock setted in deployment", async () => {
+            const total = await veNewo.minLockTime();
+            
+            expect(total).to.equal(days(90));
+        });
+        it("maxLock setted in deployment", async () => {
+            const total = await veNewo.maxLockTime();
+            
+            expect(total).to.equal(years(3));
+        });
+    })
+   describe("Test ERC20 transfer functions", async () => {        
+       before(initialize);
+        it("revert for transfer", async () => {
+            await expect(
+                veNewo.transfer(await addr1.getAddress(), 1000)
+                ).to.be.reverted;
+        });
+        it("revert for approve", async () => {
+            await expect(
+                veNewo.approve(await addr1.getAddress(), 1000)
+                ).to.be.reverted;
+        });
+        it("revert for transferFrom", async () => {
+            await expect(
+                veNewo.approve(await addr1.getAddress(), 1000)
+                ).to.be.reverted;
+        });
+    });
+
+    /* numerical return of ve multipler */
+    describe("Test veMult numerical value", async () => {        
+       before(initialize);
+        it("convertToShares 3 months return multiplier equal 1", async () => {
+            expect(
+                await veNewo["convertToShares(uint256,uint256)"](100, days(90))
+                ).to.be.equal(100);
+        });
+        it("convertToShares without time returns min multipler", async () => {
+            expect(
+                await veNewo["convertToShares(uint256)"](100)
+                ).to.be.equal(100);
+        });
+        it("convertToAssets 3 months return multiplier equal 1", async () => {
+            expect(
+                await veNewo["convertToAssets(uint256,uint256)"](100, days(90))
+                ).to.be.equal(100);
+        });
+        it("convertToAssets 3 without time returns min multipler", async () => {
+            expect(
+                await veNewo["convertToAssets(uint256)"](100)
+                ).to.be.equal(100);
+        });
+    });
+
+    /* impossible cases */
+    describe("Deposit it for invalid days", () => {
+        before(initialize);
+        it("the depositor can't lock it for 0 days", async () => {
+            await expect(
+                veNewo
+                    .connect(addr1)
+                    ["deposit(uint256,address,uint256)"](
+                        parseNewo(1000),
+                        address(addr1),
+                        days(0)
+                    )
+            ).to.be.revertedWith("Unauthorized()");
+        });
         it("the depositor can't lock it for 30 days", async () => {
             await expect(
                 veNewo
@@ -151,10 +338,6 @@ describe("veNewo tests", function () {
                     )
             ).to.be.revertedWith("Unauthorized()");
         });
-    });
-
-    describe("Deposit it for 4 years", () => {
-        before(initialize);
         it("the depositor can't lock it for 4 years", async () => {
             await expect(
                 veNewo
@@ -163,6 +346,21 @@ describe("veNewo tests", function () {
                         parseNewo(1000),
                         address(addr1),
                         years(4)
+                    )
+            ).to.be.revertedWith("Unauthorized()");
+        });
+    });
+    
+    describe("Deposit 0 for valid time", () => {
+        before(initialize);
+        it("the depositor can't lock 0", async () => {
+            await expect(
+                veNewo
+                    .connect(addr1)
+                    ["deposit(uint256,address,uint256)"](
+                        parseNewo(0),
+                        address(addr1),
+                        years(1)
                     )
             ).to.be.revertedWith("Unauthorized()");
         });
@@ -213,7 +411,7 @@ describe("veNewo tests", function () {
 
                 // TODO: claim the rewards
                 // await rewards.getReward();
-                console.log("exiting");
+                console.log("\texiting...");
                 await veNewo.connect(addr1).exit();
 
                 const { balNewo: balNewoAfter } = await checkBalances(addr1);
@@ -265,7 +463,7 @@ describe("veNewo tests", function () {
                 await timeTravel(restOfThePeriod + days(3));
 
                 // exit
-                console.log("addr2 try to withdraw for addr1");
+                console.log("\taddr2 try to withdraw for addr1");
                 await expect(
                     veNewo
                         .connect(addr2)
@@ -285,7 +483,7 @@ describe("veNewo tests", function () {
                 );
 
                 // exit
-                console.log("addr2 try to withdraw for addr1");
+                console.log("\taddr2 try to withdraw for addr1");
                 await veNewo
                     .connect(addr2)
                     .withdraw(
@@ -310,7 +508,7 @@ describe("veNewo tests", function () {
         const { balNewo: balNewoBefore } = await checkBalances(addr1);
 
         // deposit
-        console.log("depositing");
+        console.log("\tdepositing...");
         await veNewo
             .connect(addr1)
             ["deposit(uint256,address,uint256)"](
@@ -326,11 +524,15 @@ describe("veNewo tests", function () {
     async function checkBalances(signer: Signer) {
         const balNewo = await balanceNewo(signer);
         const balVeNewo = await balanceVeNewo(signer);
+        const balStakeNewo = await stakeBalanceNewo(signer);
         console.log(
-            `balance of newo of ${address(signer)}: ${formatNewo(balNewo)}`
+            `\tbalance of newo of ${address(signer)}: ${formatNewo(balNewo)}`
         );
         console.log(
-            `balance of veNewo of ${address(signer)}: ${formatVeNewo(
+            `\tbalance of staked newo of ${address(signer)}: ${formatNewo(balNewo)}`
+        );
+        console.log(
+            `\tbalance of veNewo of ${address(signer)}: ${formatVeNewo(
                 balVeNewo
             )}`
         );

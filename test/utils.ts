@@ -16,7 +16,7 @@ export const timeTravel = async (seconds: number) => {
     const now = blockBefore.timestamp;
 
     const future = now + seconds; // some times later
-    console.log(`time traveling to: ${moment.unix(future).toDate()}`);
+    console.log(`\ttime traveling to: ${moment.unix(future).toDate()}`);
     await hre.network.provider.send("evm_setNextBlockTimestamp", [future]);
     await hre.network.provider.send("evm_mine");
 };
@@ -30,12 +30,20 @@ export const address = (entity: any) =>
     entity.address ?? ethers.constants.AddressZero;
 
 /**
- *
+ * return balance of an address
  * @param tokenContract
  * @returns a function that checks the balance
  */
 export const balance = (tokenContract: Contract) => async (entity: any) =>
     await tokenContract.balanceOf(address(entity));
+
+/**
+ * return balance of an address
+ * @param tokenContract
+ * @returns a function that checks the balance
+ */
+export const assetBalance = (tokenContract: Contract) => async (entity: any) =>
+    await tokenContract.assetBalanceOf(address(entity));
 
 /**
  * get seconds for x number of days
