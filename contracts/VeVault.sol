@@ -75,26 +75,6 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         _symbol = symbol_;
     }
     
-    // constructor(
-    //     address owner_,
-    //     address stakingToken_,
-    //     uint256 bountyReward_,
-    //     uint256 gracePeriod_,
-    //     uint256 minLockTime_,
-    //     uint256 maxLockTime_
-    // ) Owned(owner_) {
-    //     assetToken = IERC20(stakingToken_);
-    //     _assetTokenAddress = stakingToken_;
-
-    //     _penaltyPerc = bountyReward_;
-    //     _gracePeriod = gracePeriod_; 
-    //     _minLockTime = minLockTime_;
-    //     _maxLockTime = maxLockTime_;
-
-    //     _enforceTime = true;
-    //     paused = false;
-    // }
-    
     /* ========== VIEWS ========== */
     
     /**

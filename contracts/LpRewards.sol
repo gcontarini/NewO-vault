@@ -3,6 +3,7 @@ pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 import "./Pausable.sol";
 import "./RewardsDistributionRecipient.sol";
@@ -12,6 +13,11 @@ import "./interfaces/IVeVault.sol";
 import "./interfaces/IERC4626.sol";
 
 import "hardhat/console.sol";
+
+error Unauthorized();
+error UnauthorizedClaim();
+error RewardTooHigh(uint256 allowed, uint256 rewardRate);
+error NotWhitelisted();
 
 abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRecipient, IERC4626 {
     using SafeERC20 for IERC20;
@@ -59,6 +65,9 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     // ERC20 metadata (The share token)
     string public _name;
     string public _symbol;
+
+    // Only allow recoverERC20 from this list
+    mapping(address => bool) public whitelistRecoverERC20;
 
     /* ============ CONSTRUCTOR ============== */
 
@@ -162,15 +171,15 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
      /* ========== ERC20 NOT ALLOWED FUNCTIONS ========== */
 
     function transfer(address, uint256) override external pure returns (bool) {
-        revert("Transfer not allowed for this token.");
+        revert Unauthorized();
     }
 
     function approve(address, uint256) override external pure returns (bool) {
-        revert("Approve not allowed for this token.");
+        revert Unauthorized();
     }
 
     function transferFrom(address, address, uint256) override external pure returns (bool) {
-        revert("Transfer not allowed for this token.");
+        revert Unauthorized();
     }
 
     /* ============== REWARD FUNCTIONS ====================== */
@@ -205,8 +214,9 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
 
     function getReward() public nonReentrant updateReward(msg.sender) returns (uint256 reward) {
         reward = accounts[msg.sender].rewards;
-        require(reward > 0, "No reward claimable");
-            
+        // require(reward > 0, "No reward claimable");
+        if(reward <= 0)
+            revert UnauthorizedClaim();
         accounts[msg.sender].rewards = 0;
         IERC20(rewardsToken).safeTransfer(msg.sender, reward);
         emit RewardPaid(msg.sender, reward);
@@ -218,9 +228,9 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
             external
             onlyRewardsDistribution
             updateReward(address(0)) {
-        if (block.timestamp >= periodFinish) {
+        if (block.timestamp >= periodFinish)
             rewardRate = reward / rewardsDuration;
-        } else {
+        else {
             uint256 remaining = periodFinish - block.timestamp;
             uint256 leftover = remaining * rewardRate;
             rewardRate = (reward + leftover) / rewardsDuration;
@@ -231,18 +241,24 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         // very high values of rewardRate in the earned and rewardsPerToken functions;
         // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
         uint balance = IERC20(rewardsToken).balanceOf(address(this));
-        require(rewardRate <= balance / rewardsDuration, "Provided reward too high");
-
+        // require(rewardRate <= balance / rewardsDuration, "Provided reward too high");
+        if(rewardRate > balance / rewardsDuration)
+            revert RewardTooHigh({
+                allowed: balance / rewardsDuration,
+                rewardRate: rewardRate
+            });
         lastUpdateTime = block.timestamp;
         periodFinish = block.timestamp + rewardsDuration;
         emit RewardAdded(reward);
     }
 
     function setRewardsDuration(uint256 _rewardsDuration) external onlyOwner {
-        require(
-            block.timestamp > periodFinish,
-            "Previous rewards period must be complete before changing the duration for the new period"
-        );
+        // require(
+        //     block.timestamp > periodFinish,
+        //     "Previous rewards period must be complete before changing the duration for the new period"
+        // );
+        if(block.timestamp <= periodFinish)
+            revert Unauthorized();
         rewardsDuration = _rewardsDuration;
         emit RewardsDurationUpdated(rewardsDuration);
     }
@@ -337,10 +353,14 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     /* ========== RESTRICTED FUNCTIONS ========== */
     
     function _withdraw(uint256 assets, uint256 shares, address receiver, address owner) internal {
-        require(assets > 0, "Cannot withdraw 0");
-        require(owner == msg.sender, "Caller must be the owner");
-        require(accounts[owner].assets >= assets, "Owner must have enought assets");
-        require(accounts[owner].shares - accounts[owner].sharesBoost >= shares, "Owner must have enought available shares.");
+        if(assets <= 0 || owner != msg.sender 
+            || accounts[owner].assets < assets 
+            || (accounts[owner].shares - accounts[owner].sharesBoost) < shares)
+            revert Unauthorized();
+        // require(assets > 0, "Cannot withdraw 0");
+        // require(owner == msg.sender, "Caller must be the owner");
+        // require(accounts[owner].assets >= assets, "Owner must have enought assets");
+        // require(accounts[owner].shares - accounts[owner].sharesBoost >= shares, "Owner must have enought available shares.");
         
         // Remove LP Tokens (assets)
         total.managedAssets -= assets;
@@ -357,9 +377,10 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     }
     
     function _deposit(uint256 assets, uint256 shares, address receiver) internal {
-        require(assets > 0, "Cannot stake 0");
-        require(receiver == msg.sender, "Receiver must be caller");
-
+        // require(assets > 0, "Cannot stake 0");
+        // require(receiver == msg.sender, "Receiver must be caller");
+        if(assets <= 0 || receiver != msg.sender)
+            revert Unauthorized();
         // Lp tokens
         total.managedAssets += assets;
         accounts[receiver].assets += assets;
@@ -397,11 +418,22 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         }
     }
 
+    function changeWhitelistRecoverERC20(address tokenAddress, bool flag) external onlyOwner {
+        if (tokenAddress == address(assetToken)) revert Unauthorized();
+        whitelistRecoverERC20[tokenAddress] = flag;
+        emit ChangeWhitelistERC20(tokenAddress, flag);
+    }
+
     // Added to support recovering LP Rewards from other systems such as BAL to be distributed to holders
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external onlyOwner {
-        require(tokenAddress != address(assetToken), "Cannot withdraw staking token");
+        if (whitelistRecoverERC20[tokenAddress] == false) revert NotWhitelisted();
         IERC20(tokenAddress).safeTransfer(owner, tokenAmount);
         emit Recovered(tokenAddress, tokenAmount);
+    }
+
+    function recoverERC721(address tokenAddress, uint256 tokenId) external onlyOwner {
+        IERC721(tokenAddress).safeTransferFrom(address(this), owner, tokenId);
+        emit RecoveredNFT(tokenAddress, tokenId);
     }
     
     /* ========== MODIFIERS ========== */
@@ -428,5 +460,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     event RewardPaid(address indexed user, uint256 reward);
     event RewardsDurationUpdated(uint256 newDuration);
     event Recovered(address token, uint256 amount);
+    event RecoveredNFT(address tokenAddress, uint256 tokenId);
+    event ChangeWhitelistERC20(address indexed tokenAddress, bool whitelistState);
     event BoostUpdated(address indexed owner, uint256 totalShares, uint256 boostShares);
 }
