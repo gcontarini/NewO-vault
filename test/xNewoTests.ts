@@ -6,6 +6,7 @@ import {
     XNewO,
     Rewards,
     IUniswapV2Pair,
+    IUniswapV2Router02,
     VeNewO__factory,
     XNewO__factory, 
     Rewards__factory, 
@@ -13,6 +14,8 @@ import {
 import { Signer, Contract, BigNumberish, BigNumber } from "ethers";
 
 import newOrderABI from "../abi/NewOrderERC20.json";
+import USDCABI from "../abi/USDC.json";
+
 import {
     balance,
     parseToken,
@@ -25,7 +28,10 @@ import {
 
 const lPAddress = "0xc08ED9a9ABEAbcC53875787573DC32Eee5E43513";
 const newoTokenAddress = "0x98585dFc8d9e7D48F0b1aE47ce33332CF4237D96";
+const USDCAddress = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
 const TreasuryAddress = "0xdb36b23964FAB32dCa717c99D6AEFC9FB5748f3a";
+const ROUTERADDRESS = "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F";
+const WhaleAddress = "0x1B7BAa734C00298b9429b518D621753Bb0f6efF2";
 
 describe("xNewo tests", function () {
     
@@ -33,7 +39,9 @@ describe("xNewo tests", function () {
     let XNewo: XNewO__factory;
     let Rewards: Rewards__factory;
     let lp: IUniswapV2Pair;
+    let ROUTER: IUniswapV2Router02;
     let newoToken: Contract;
+    let USDC: Contract;
 
     let rewards: Rewards;
     let xNewo: XNewO;
@@ -43,6 +51,7 @@ describe("xNewo tests", function () {
     let addr1: Signer;
     let addr2: Signer;
     let treasury: Signer;
+    let whale: Signer;
 
     let ownerAddress: string;
     let treasuryAddress: string;
@@ -52,16 +61,19 @@ describe("xNewo tests", function () {
     let balanceVeNewo: (entity: any) => Promise<BigNumberish>;
     let balanceLp: (entity: any) => Promise<BigNumberish>;
     let balanceXNewo: (entity: any) => Promise<BigNumberish>;
+    let balanceUSDC: (entity: any) => Promise<BigNumberish>;
 
     let parseNewo: (input: number) => BigNumberish;
     let parseVeNewo: (input: number) => BigNumberish;
     let parseLp: (input: number) => BigNumberish;
     let parseXNewo: (input: number) => BigNumberish;
+    let parseUSDC: (input: number) => BigNumberish;
 
     let formatNewo: (input: BigNumberish) => string;
     let formatVeNewo: (input: BigNumberish) => string;
     let formatLp: (input: BigNumberish) => string;
     let formatXNewo: (input: BigNumberish) => string;
+    let formatUSDC: (input: BigNumberish) => string;
     
 
     const initialize = async () => {
@@ -92,6 +104,13 @@ describe("xNewo tests", function () {
         parseLp = await parseToken(lp);
         formatLp = await formatToken(lp);
 
+        USDC = await ethers.getContractAt(USDCABI, USDCAddress)
+        balanceUSDC = balance(USDC);
+        parseUSDC = await parseToken(USDC);
+        formatUSDC = await formatToken(USDC);
+
+        ROUTER = await ethers.getContractAt("IUniswapV2Router02", ROUTERADDRESS);
+
         const signers = await ethers.getSigners();
         owner = signers[0];
         addr1 = signers[1];
@@ -109,6 +128,19 @@ describe("xNewo tests", function () {
         ]);
 
         treasury = await ethers.getSigner(TreasuryAddress);
+
+        await hre.network.provider.request({
+            method: "hardhat_impersonateAccount",
+            params: [WhaleAddress],
+        });
+
+        // Grant more gas to this other sucker
+        await hre.network.provider.send("hardhat_setBalance", [
+            WhaleAddress,
+            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        ]);
+
+        whale = await ethers.getSigner(WhaleAddress)
 
         ownerAddress = await owner.getAddress();
         addr1Address = await addr1.getAddress();
@@ -163,6 +195,13 @@ describe("xNewo tests", function () {
             .connect(treasury)
             .transfer(addr1Address, numberOfXTokens
         );
+        
+        // Transfer some USDC to addr1 so he can add liquidity
+        const numberOfUSDCTokens = parseUSDC(1000);
+        await USDC
+            .connect(whale)
+            .transfer(addr1Address, numberOfUSDCTokens
+        );
 
         // approve the token
         await newoToken
@@ -170,15 +209,21 @@ describe("xNewo tests", function () {
             .approve(
                 address(veNewo),
                 "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-            );
+        );
         
+        // aprove lp spending
         await lp
-        .connect(addr1)
-        .approve(
-            address(xNewo),
-            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+            .connect(addr1)
+            .approve(
+                address(xNewo),
+                "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
         );
     };
+
+    // Testing if addr1 have the expected funds (USDC, NewO, LP, xNewO, veNewO§)
+    describe("" , () => {
+        before(initialize);
+    });
 
     // Tests for view functions
     describe("Test view functions for simplest case.", async () => {        
@@ -264,37 +309,33 @@ describe("xNewo tests", function () {
                     parseLp(1),
                     address(addr1)
                 );
-            
-            const { balXNewo : balX } = await checkBalances(addr1);
             await expect (
                 xNewo
                     .connect(addr1)
                     .approve(
                         address(addr1),
-                        balX,
+                        parseXNewo(1),
                     )
             ).to.be.reverted;
         })
         it("Transfer function should revert", async () => {
-            const { balXNewo : balX } = await checkBalances(addr1);
             await expect (
                 xNewo
                     .connect(addr1)
                     .transfer(
                         address(addr1),
-                        balX,
+                        parseXNewo(1),
                     )
             ).to.be.reverted;
         })
         it("transferFrom function should revert", async () => {
-            const { balXNewo : balX } = await checkBalances(addr1);
             await expect (
                 xNewo
                     .connect(addr1)
                     .transferFrom(
                         address(addr2),
                         address(addr1),
-                        balX,
+                        parseXNewo(1),
                     )
             ).to.be.reverted;
         })
@@ -310,36 +351,46 @@ describe("xNewo tests", function () {
         })
     });
 
-    describe("", () => {
-
-    })
-
-
+    /* Test multiplier */
+    describe("testing balances" , () => {
+        before(initialize);
+        it("should have funds", async () => {
+            const {balUSDC : balance} = await checkBalances(addr1);
+            expect(balance).to.equal(parseUSDC(1001))
+        })
+    });
+    
     async function checkBalances(signer: Signer) {
         const balNewo = await balanceNewo(signer);
         const balVeNewo = await balanceVeNewo(signer);
         const balXNewo = await balanceXNewo(signer);
         const balLp = await balanceLp(signer);
+        const balUSDC = await balanceUSDC(signer);
         console.log(
-            `balance of newo of ${address(signer)}: ${formatNewo(
+            `\tbalance of newo of ${address(signer)}: ${formatNewo(
                 balNewo
             )}`
         );
         console.log(
-            `balance of veNewo of ${address(signer)}: ${formatVeNewo(
+            `\tbalance of veNewo of ${address(signer)}: ${formatVeNewo(
                 balVeNewo
             )}`
         );
         console.log(
-            `balance of XNewo of ${address(signer)}: ${formatXNewo(
+            `\tbalance of XNewo of ${address(signer)}: ${formatXNewo(
                 balXNewo
             )}`
         );
         console.log(
-            `balance of Lp of ${address(signer)}: ${formatLp(
+            `\tbalance of Lp of ${address(signer)}: ${formatLp(
                 balLp
             )}`
         );
-        return { balNewo, balVeNewo , balXNewo, balLp};
+        console.log(
+            `\tbalance of USDC of ${address(signer)}: ${formatUSDC(
+                balUSDC
+            )}`
+        );
+        return { balNewo, balVeNewo , balXNewo, balLp, balUSDC };
     }
 });

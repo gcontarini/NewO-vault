@@ -14,6 +14,7 @@ import "./interfaces/IERC4626.sol";
 
 import "hardhat/console.sol";
 
+// Custom errors
 error Unauthorized();
 error UnauthorizedClaim();
 error RewardTooHigh(uint256 allowed, uint256 rewardRate);
@@ -388,7 +389,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         console.log(accounts[owner].assets, getNewoLocked(owner), getNewoShare(owner));
 
         if (getNewoShare(owner) >= getNewoLocked(owner))
-            newShares = accounts[owner].assets * getMultiplier(owner) / PRECISION;
+            newShares = accounts[owner].assets * getMultiplier(owner);
         if (newShares > oldShares) {
             // Mint boost shares
             uint256 diff = newShares - oldShares;
