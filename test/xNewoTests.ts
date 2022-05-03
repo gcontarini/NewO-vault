@@ -408,30 +408,32 @@ describe("xNewo tests", function () {
         
         it("Multiplier should be equal to VeMultipler when address has veNewo", async () => {
             const { 
-                balVeNewo: balVeBefore,
                 balNewo: balNewoBefore 
             } = await checkBalances(addr1);
             
             await veNewo
                 .connect(addr1)
-                ["deposit(uint256,address)"](
-                    balNewoBefore, address(addr1)
+                ["deposit(uint256,address,uint256)"](
+                    balNewoBefore,
+                    address(addr1),
+                    years(2)
                 );
             
             expect(await veNewo
                 .balanceOf(address(addr1))
             ).to.not.equal(0);
-
-            expect(await veNewo
-                    .avgVeMult(address(addr1))
+            
+            const { 
+                balVeNewo: balVeAfter,
+            } = await checkBalances(addr1);
+            
+            
+            expect(
+                (balVeAfter as BigNumber).mul("1000000000000000000").div(balNewoBefore)
             ).to.be.equal(await xNewo
-                    .getMultiplier(address(addr1))
-                );
+                .getMultiplier(address(addr1))
+            );
         })
-
-        it("Multiplier should be equal to veMultiplier when address has veNewo with bonus", async () => {
-
-        });
     });
 
     describe("Testing getNewoLocked()", () => {
@@ -462,7 +464,166 @@ describe("xNewo tests", function () {
             .to.be.equal(balNewoBefore);
         })
     })
-    
+
+    describe("Testing deposit()", () => {
+        before(initialize);
+        it("deposit should add the right amount of assets to the Vault", async () => {
+            expect(await xNewo
+                .totalAssets()
+            ).to.be.equal(0)
+            
+            await addSushiLiquidity(addr1, 10000, 700);
+            
+            const { 
+                balLp: lpBalBefore
+            } = await checkBalances(addr1);
+            
+            await xNewo
+                .connect(addr1)
+                .deposit(lpBalBefore, address(addr1))
+
+            expect(await xNewo
+                .totalAssets()
+            ).to.be.equal(lpBalBefore);
+        })
+    })
+
+    describe("", () => {
+        before(initialize);
+        it("If depositor has no veNewo, vault should mint xNewo on the same amount of lp staked", async () => {
+            
+            await addSushiLiquidity(addr1, 10000, 700);
+            
+            expect(await veNewo
+                .balanceOf(address(addr1))
+            ).to.be.equal(0);
+
+            const { 
+                balLp: balLpBefore
+            } = await checkBalances(addr1);
+
+            await xNewo
+                .connect(addr1)
+                .deposit(balLpBefore, address(addr1)
+                );
+            
+            expect(await xNewo
+                .balanceOf(address(addr1))
+            ).to.be.equal(balLpBefore)
+        })
+    })
+
+    describe("", () => {
+        before(initialize);
+        it("If address locked for min locktime and address has more newO locked than staked, hes bonus is 0", async () => {
+            const newoToLock = 1000;
+            await addSushiLiquidity(addr1, 100, 7);
+
+            const { balLp: balLpBefore } = await checkBalances(addr1);
+
+            await veNewo
+                .connect(addr1)
+                ["deposit(uint256,address)"](parseNewo(newoToLock), address(addr1));
+            
+            await xNewo
+                .connect(addr1)
+                .deposit(balLpBefore, address(addr1)
+            );
+
+            const {
+                balXNewo: balXAfter,
+            } = await checkBalances(addr1);
+
+            expect(balXAfter as BigNumber).to.be.equal(balLpBefore);
+        })
+    })
+
+    describe("", () => {
+        before(initialize);
+        it("If address locked newo for more than min locktime and address has more newO locked than staked, hes bonus is positive", async () => {
+            const newoToLock = 1000;
+            await addSushiLiquidity(addr1, 100, 7);
+
+            const { balLp: balLpBefore } = await checkBalances(addr1);
+
+            await veNewo
+                .connect(addr1)
+                ["deposit(uint256,address,uint256)"]
+                (parseNewo(newoToLock), address(addr1), years(2));
+            
+            await xNewo
+                .connect(addr1)
+                .deposit(balLpBefore, address(addr1)
+            );
+
+            const {
+                balXNewo: balXAfter,
+            } = await checkBalances(addr1);
+
+            expect(balXAfter as BigNumber).to.gt(balLpBefore);
+        })
+    })
+
+    describe("", () => {
+        before(initialize);
+        it("If address locked newo for more than min locktime and address has more newO locked than staked, hes bonus should be equal to veMult", async () => {
+            const newoToLock = 1000;
+            await addSushiLiquidity(addr1, 100, 7);
+
+            const { balLp: balLpBefore } = await checkBalances(addr1);
+
+            await veNewo
+                .connect(addr1)
+                ["deposit(uint256,address,uint256)"]
+                (parseNewo(newoToLock), address(addr1), years(2));
+            
+            await xNewo
+                .connect(addr1)
+                .deposit(balLpBefore, address(addr1)
+            );
+
+            const {
+                balVeNewo: balVeAfter,
+                balXNewo: balXAfter,
+            } = await checkBalances(addr1);
+
+            expect((balXAfter as BigNumber)
+                .mul("10000000000000000")
+                .div(balLpBefore)
+            ).to.be.equal((balVeAfter as BigNumber)
+                .mul("10000000000000000")
+                .div(parseNewo(newoToLock))
+            )
+        })
+    })
+
+    describe("", () => {
+        before(initialize);
+        it("If address locked newo for more than min locktime but address has less newO locked than staked hes bonus should 0", async () => {
+            const newoToLock = 100;
+            await addSushiLiquidity(addr1, 1000, 70);
+
+            const { balLp: balLpBefore } = await checkBalances(addr1);
+
+            await veNewo
+                .connect(addr1)
+                ["deposit(uint256,address,uint256)"]
+                (parseNewo(newoToLock), address(addr1), years(2));
+            
+            await xNewo
+                .connect(addr1)
+                .deposit(balLpBefore, address(addr1)
+            );
+
+            const {
+                balXNewo: balXAfter,
+            } = await checkBalances(addr1);
+
+            expect(balXAfter as BigNumber).to.be.equal(balLpBefore);
+
+        })
+    })
+
     async function addSushiLiquidity(signer: Signer, NewoAmount: number, USDCAmount: number){
         const { 
             balNewo: newOBalBefore,
@@ -470,9 +631,9 @@ describe("xNewo tests", function () {
             balLp: lpBalBefore 
         } = await checkBalances(signer);
 
-        console.log(`\tadding liquidity by ${address(signer)}...\n\n`);
+        // console.log(`\tadding liquidity by ${address(signer)}...\n\n`);
         
-        await ROUTER.connect(signer).addLiquidity(
+        const test = await ROUTER.connect(signer).addLiquidity(
             address(newoToken),
             address(USDC),
             parseNewo(NewoAmount),
@@ -482,7 +643,7 @@ describe("xNewo tests", function () {
             address(signer),
             999999999999,
         );
-        
+
         const { 
             balNewo: newOBalAfter,
             balUSDC: USDCBalAfter,

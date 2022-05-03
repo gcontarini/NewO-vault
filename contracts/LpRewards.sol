@@ -385,8 +385,10 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     function _updateBoost(address owner) internal {
         uint256 oldShares = accounts[owner].shares;
         uint256 newShares = oldShares;
-        if (getNewoShare(owner) >= getNewoLocked(owner))
-            newShares = accounts[owner].assets * getMultiplier(owner);
+        if (getNewoShare(owner) <= getNewoLocked(owner)){
+            console.log(getNewoShare(owner), getNewoLocked(owner), accounts[owner].assets, getMultiplier(owner));
+            newShares = accounts[owner].assets * getMultiplier(owner) / PRECISION;
+        }
         if (newShares > oldShares) {
             // Mint boost shares
             uint256 diff = newShares - oldShares;
