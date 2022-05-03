@@ -183,27 +183,20 @@ describe("xNewo tests", function () {
         formatXNewo = await formatToken(xNewo);
 
         // Transfer some Newo to addr1 so he can spend freelly;
-        const numberOfTokens = parseNewo(1000);
+        const numberOfTokens = parseNewo(10000);
         await newoToken
             .connect(treasury)
             .transfer(addr1Address, numberOfTokens
         );
-
-        // Transfer some Lp tokens to addr1 so he can stake;
-        const numberOfXTokens = parseLp(2);
-        await lp
-            .connect(treasury)
-            .transfer(addr1Address, numberOfXTokens
-        );
         
         // Transfer some USDC to addr1 so he can add liquidity
-        const numberOfUSDCTokens = parseUSDC(1000);
+        const numberOfUSDCTokens = parseUSDC(11000);
         await USDC
             .connect(whale)
             .transfer(addr1Address, numberOfUSDCTokens
         );
 
-        // approve the token
+        // approve the token to addr1
         await newoToken
             .connect(addr1)
             .approve(
@@ -211,19 +204,30 @@ describe("xNewo tests", function () {
                 "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
         );
         
-        // aprove lp spending
+        // aprove lp spending to addr1
         await lp
             .connect(addr1)
             .approve(
                 address(xNewo),
                 "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
         );
-    };
 
-    // Testing if addr1 have the expected funds (USDC, NewO, LP, xNewO, veNewO§)
-    describe("" , () => {
-        before(initialize);
-    });
+        // aprove USDC spending to addr1
+        await USDC
+            .connect(addr1)
+            .approve(
+                address(ROUTER),
+                "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        );
+
+        // aprove NewO spending to addr1
+        await newoToken
+            .connect(addr1)
+            .approve(
+                address(ROUTER),
+                "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        );
+    };
 
     // Tests for view functions
     describe("Test view functions for simplest case.", async () => {        
@@ -299,16 +303,15 @@ describe("xNewo tests", function () {
         });
     })
 
-    /* Testing impossible cases */
+    /* Testing ERC20 transfer lock */
     describe("Testing if xNewO is not transferable", () => {
         before(initialize)
         it("Approve function should revert", async () => {
-            await xNewo
-                .connect(addr1)
-                .deposit(
-                    parseLp(1),
-                    address(addr1)
-                );
+            const numberOfXTokens = parseLp(2);
+            await lp
+                .connect(treasury)
+                .transfer(addr1Address, numberOfXTokens
+            );
             await expect (
                 xNewo
                     .connect(addr1)
@@ -339,7 +342,7 @@ describe("xNewo tests", function () {
                     )
             ).to.be.reverted;
         })
-        it("allowance function should always return 0", async () => {
+        it("allowance function should return 0", async () => {
             expect(
                 await xNewo
                     .connect(addr1)
@@ -351,21 +354,151 @@ describe("xNewo tests", function () {
         })
     });
 
-    /* Test multiplier */
-    describe("testing balances" , () => {
+    /* Tests for External View functions */
+    describe("Testing getNewoShare()" , () => {
         before(initialize);
-        it("should have funds", async () => {
-            const {balUSDC : balance} = await checkBalances(addr1);
-            expect(balance).to.equal(parseUSDC(1001))
+        it("getNewoShare() should return 0 if address is not a liquidity provider", async () => {
+            
+            expect(await lp
+                .balanceOf(address(addr1))
+            ).to.be.equal(0);
+
+            expect(await xNewo
+                .getNewoShare(address(addr1))
+            ).to.be.equal(0);
+        });
+
+        it("getNewoShare() should return amount of newo added to the liquidity pool", async () => {
+            
+            const { 
+                newoAdded: newoPool,
+                lpAdded: lpEarned
+            } = await addSushiLiquidity(addr1, 10000, 700);
+            
+            await xNewo
+                .connect(addr1)
+                .deposit(lpEarned, address(addr1));
+            
+            const newoLpShares = await xNewo.getNewoShare(address(addr1));
+            expect(newoLpShares).to.be.equal(newoPool.toString());
+        });
+    });
+
+    describe("Testing getMultiplier()", () => {
+        before(initialize);
+        it("Multiplier should be 1 if veVault is empty", async () => {
+            expect(await veNewo
+                .totalAssets()
+            ).to.be.equal(0)
+            
+            expect (await xNewo
+                .getMultiplier(address(addr1))
+            ).to.be.equal(1);
+        })
+
+        it("Multiplier should be 1 if address has no veNewo", async () => {
+            expect(await veNewo
+                .balanceOf(address(addr1))
+            ).to.be.equal(0);
+            
+            expect(await xNewo
+                .getMultiplier(address(addr1))
+            ).to.be.equal(1)
+        })
+        
+        it("Multiplier should be equal to VeMultipler when address has veNewo", async () => {
+            const { 
+                balNewo: balNewoBefore 
+            } = await checkBalances(addr1);
+            
+            await veNewo
+                .connect(addr1)
+                ["deposit(uint256,address)"](
+                    balNewoBefore, address(addr1)
+                );
+            
+            expect(await veNewo
+                .balanceOf(address(addr1))
+            ).to.not.equal(0);
+
+            expect(await veNewo
+                    .avgVeMult(address(addr1))
+            ).to.be.equal(await xNewo
+                    .getMultiplier(address(addr1))
+                );
         })
     });
+
+    describe("Testing getNewoLocked()", () => {
+        before(initialize);
+        it("getNewoLocked() should return zero if owner has no veNewO", async () => {
+            
+            expect(await veNewo
+                .balanceOf(address(addr1)))
+            .to.be.equal(0);
+            
+            expect (await xNewo
+                .getNewoLocked(address(addr1)))
+            .to.be.equal(0);
+        })
+        it("getNewoLocked() should return the amount of NewO locked", async () => {
+            const { 
+                balNewo: balNewoBefore 
+            } = await checkBalances(addr1);
+
+            await veNewo
+                .connect(addr1)
+                ["deposit(uint256,address)"](
+                    balNewoBefore, address(addr1)
+                );
+            
+            expect(await xNewo
+                .getNewoLocked(address(addr1)))
+            .to.be.equal(balNewoBefore);
+        })
+    })
     
+    async function addSushiLiquidity(signer: Signer, NewoAmount: number, USDCAmount: number){
+        const { 
+            balNewo: newOBalBefore,
+            balUSDC: USDCBalBefore,
+            balLp: lpBalBefore 
+        } = await checkBalances(signer);
+
+        console.log(`\tadding liquidity by ${address(signer)}...\n\n`);
+        
+        await ROUTER.connect(signer).addLiquidity(
+            address(newoToken),
+            address(USDC),
+            parseNewo(NewoAmount),
+            parseUSDC(USDCAmount),
+            parseNewo(1),
+            parseUSDC(1),
+            address(signer),
+            999999999999,
+        );
+        
+        const { 
+            balNewo: newOBalAfter,
+            balUSDC: USDCBalAfter,
+            balLp: lpBalAfter
+        } = await checkBalances(signer);
+        
+        const newoAdded = (newOBalBefore as BigNumber).sub(newOBalAfter);
+        const USDCAdded = (USDCBalBefore as BigNumber).sub(USDCBalAfter);
+        const lpAdded = (lpBalAfter as BigNumber).sub(lpBalBefore);
+        
+        return { newoAdded, USDCAdded, lpAdded }
+    }
+
     async function checkBalances(signer: Signer) {
         const balNewo = await balanceNewo(signer);
         const balVeNewo = await balanceVeNewo(signer);
         const balXNewo = await balanceXNewo(signer);
         const balLp = await balanceLp(signer);
         const balUSDC = await balanceUSDC(signer);
+        console.log("\tBalance report:");
+        
         console.log(
             `\tbalance of newo of ${address(signer)}: ${formatNewo(
                 balNewo
@@ -389,7 +522,7 @@ describe("xNewo tests", function () {
         console.log(
             `\tbalance of USDC of ${address(signer)}: ${formatUSDC(
                 balUSDC
-            )}`
+            )}\n`
         );
         return { balNewo, balVeNewo , balXNewo, balLp, balUSDC };
     }
