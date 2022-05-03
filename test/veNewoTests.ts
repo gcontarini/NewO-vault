@@ -27,7 +27,7 @@ import { months } from "moment";
 const newoTokenAddress = "0x98585dFc8d9e7D48F0b1aE47ce33332CF4237D96";
 const TreasuryAddress = "0xdb36b23964FAB32dCa717c99D6AEFC9FB5748f3a";
 
-describe("veNewo tests", function () {
+describe("veNewo tests", async function () {
     let VeNewo: VeNewO__factory;
     let XNewo: XNewO__factory;
     let Rewards: Rewards__factory;
@@ -269,7 +269,9 @@ describe("veNewo tests", function () {
             expect(total).to.equal(years(3));
         });
     })
-   describe("Test ERC20 transfer functions", async () => {        
+    
+    /* Not allowed ERC20 transfers */
+    describe("Test ERC20 transfer functions", async () => {        
        before(initialize);
         it("revert for transfer", async () => {
             await expect(
@@ -283,7 +285,7 @@ describe("veNewo tests", function () {
         });
         it("revert for transferFrom", async () => {
             await expect(
-                veNewo.approve(await addr1.getAddress(), 1000)
+                veNewo.transferFrom(await addr1.getAddress(), await addr2.getAddress(), 1000)
                 ).to.be.reverted;
         });
     });
@@ -301,14 +303,44 @@ describe("veNewo tests", function () {
                 await veNewo["convertToShares(uint256)"](100)
                 ).to.be.equal(100);
         });
+        it("convertToShares 2 years return multiplier equal 1.95", async () => {
+            expect(
+                await veNewo["convertToShares(uint256,uint256)"](100, years(2))
+                ).to.be.equal(195);
+        });
+        it("convertToShares 9 months return multiplier equal 1.19", async () => {
+            expect(
+                await veNewo["convertToShares(uint256,uint256)"](100, days(30 * 9))
+                ).to.be.equal(119);
+        });
+        it("convertToShares 3 years return multiplier equal 3.3", async () => {
+            expect(
+                await veNewo["convertToShares(uint256,uint256)"](100, years(3))
+                ).to.be.equal(330);
+        });
         it("convertToAssets 3 months return multiplier equal 1", async () => {
             expect(
                 await veNewo["convertToAssets(uint256,uint256)"](100, days(90))
                 ).to.be.equal(100);
         });
-        it("convertToAssets 3 without time returns min multipler", async () => {
+        it("convertToAssets without time returns min multipler", async () => {
             expect(
                 await veNewo["convertToAssets(uint256)"](100)
+                ).to.be.equal(100);
+        });
+        it("convertToAssets 3 years return multiplier equal 3.3", async () => {
+            expect(
+                await veNewo["convertToAssets(uint256,uint256)"](330, years(3))
+                ).to.be.equal(100);
+        });
+        it("convertToAssets 2 years return multiplier equal 1.95", async () => {
+            expect(
+                await veNewo["convertToAssets(uint256,uint256)"](195, years(2))
+                ).to.be.equal(100);
+        });
+        it("convertToAssets 9 months return multiplier equal 1.19", async () => {
+            expect(
+                await veNewo["convertToAssets(uint256,uint256)"](119, days(30 * 9))
                 ).to.be.equal(100);
         });
     });
@@ -371,6 +403,115 @@ describe("veNewo tests", function () {
     testLock(years(3), days(30), 100);
     testKickUser(days(90), days(30), 100);
     testKickUser(years(3), days(30), 100);
+    testLockAndRelock(years(1), days(90), days(30), years(1), 50, 50);
+
+    /**
+     * Write something
+     * @param totalLockPeriod 
+     * @param lockPeriod1 
+     * @param lockPeriod2 
+     * @param waitPeriod1 
+     * @param waitPeriod2 
+     * @param depositAmount1 
+     * @param depositAmount2 
+     */
+    function testLockAndRelock(
+        lockPeriod1: number,
+        lockPeriod2: number,
+        waitPeriod1: number,
+        waitPeriod2: number,
+        depositAmount1: number,
+        depositAmount2: number
+    ) {
+        const numDays = Math.round(lockPeriod1 / 86400);
+        const numDaysW1 = Math.round(waitPeriod1 / 86400);
+        const numDaysLock2 = Math.round(waitPeriod2 / 86400);
+        // const restOfThePeriod = totalLockPeriod - initialWaitPeriod;
+
+        describe(`Lock for ${numDays} days with restaking after ${numDaysW1} days for more ${numDaysLock2}.`, () => {
+            before(initialize);
+
+            let baseDate: number;
+
+            it("Total amount locked is the sum of 2 locks", async () => {
+                await userDeposit(lockPeriod1, parseNewo(depositAmount1));
+                
+                // Get time when deposit happened
+                const blockNumBefore = await ethers.provider.getBlockNumber();
+                const blockBefore = await ethers.provider.getBlock(blockNumBefore);
+                baseDate = blockBefore.timestamp;
+                // time travel
+                await timeTravel(waitPeriod1);
+                // Second lock
+                await userDeposit(lockPeriod2, parseNewo(depositAmount2));
+
+                expect(
+                    await veNewo.assetBalanceOf(await addr1.getAddress())
+                    ).to.equal(parseNewo(depositAmount1 + depositAmount2));
+            });
+            it("Total time locked is equal sum lock times", async () => {
+                const newEndDate = baseDate + lockPeriod1 + lockPeriod2;
+                expect(
+                    await veNewo.unlockDate(await addr1.getAddress())
+                    ).to.equal(newEndDate);
+            });
+            // Continue from here
+            it("Try self withdraw but not in date", async () => {
+                await expect(
+                    veNewo.connect(addr1)
+                    .withdraw(
+                        parseNewo(depositAmount1),
+                        await addr1.getAddress(),
+                        await addr1.getAddress())
+                    ).to.be.revertedWith("FundsNotUnlocked()");
+            });
+            it("Partial withdraw in date", async () => {
+                await timeTravel(lockPeriod1 + lockPeriod2);
+                
+                const {balVeNewo: sharesBefore, balStakeNewo: assetsBefore} = await checkBalances(addr1);
+                const avgMult = BigNumber.from(sharesBefore).mul(100).div(BigNumber.from(assetsBefore));
+                const expectedBurnShares = avgMult.mul(parseNewo(depositAmount1)).div(100);
+                
+                await veNewo.connect(addr1)
+                    .withdraw(
+                        parseNewo(depositAmount1),
+                        await addr1.getAddress(),
+                        await addr1.getAddress())
+                
+                const {balVeNewo: sharesAfter, balStakeNewo: assetsAfter} = await checkBalances(addr1);
+                const shares = BigNumber.from(sharesBefore).sub(BigNumber.from(sharesAfter));
+
+                expect(shares).to.equal(expectedBurnShares);
+            });
+            it("Being kicked by someone else but not in date", async () => {
+                const newEndDate = baseDate + lockPeriod1 + lockPeriod2;
+                expect(
+                    await veNewo.unlockDate(await addr1.getAddress())
+                    ).to.equal(newEndDate);
+            });
+            // it("Being kicked by someone else in date", async () => {
+            //     const newEndDate = baseDate + lockPeriod1 + lockPeriod2;
+            //     expect(
+            //         await veNewo.unlockDate(await addr1.getAddress())
+            //         ).to.equal(newEndDate);
+            // });
+            // it("Value is correct for depositer", async () => {
+            //     const newEndDate = baseDate + lockPeriod1 + lockPeriod2;
+            //     expect(
+            //         await veNewo.unlockDate(await addr1.getAddress())
+            //         ).to.equal(newEndDate);
+            // });
+            // it("Reward is correct for kicker", async () => {
+            //     const newEndDate = baseDate + lockPeriod1 + lockPeriod2;
+            //     expect(
+            //         await veNewo.unlockDate(await addr1.getAddress())
+            //         ).to.equal(newEndDate);
+            // });
+        });
+    }
+
+    // Try lock, withdraw and stake again
+    // Try mint function, and redeem
 
     /**
      * test locking cases
@@ -525,17 +666,17 @@ describe("veNewo tests", function () {
         const balNewo = await balanceNewo(signer);
         const balVeNewo = await balanceVeNewo(signer);
         const balStakeNewo = await stakeBalanceNewo(signer);
-        console.log(
-            `\tbalance of newo of ${address(signer)}: ${formatNewo(balNewo)}`
-        );
-        console.log(
-            `\tbalance of staked newo of ${address(signer)}: ${formatNewo(balNewo)}`
-        );
-        console.log(
-            `\tbalance of veNewo of ${address(signer)}: ${formatVeNewo(
-                balVeNewo
-            )}`
-        );
-        return { balNewo, balVeNewo };
+        // console.log(
+        //     `\tbalance of newo of ${address(signer)}: ${formatNewo(balNewo)}`
+        // );
+        // console.log(
+        //     `\tbalance of veNewo of ${address(signer)}: ${formatVeNewo(
+        //         balVeNewo
+        //     )}`
+        // );
+        // console.log(
+        //     `\tbalance of staked newo of ${address(signer)}: ${formatNewo(balNewo)}`
+        // );
+        return { balNewo, balVeNewo, balStakeNewo };
     }
 });

@@ -68,6 +68,8 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     uint256 private constant K_1 = 116304927000000;
     uint256 private constant K = 90026564600000000;
 
+    
+
     /* ========== CONSTRUCTOR ========== */
 
     constructor(string memory name_, string memory symbol_) {
