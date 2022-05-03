@@ -265,7 +265,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         uint112 reserve0; uint112 reserve1; uint32 timestamp;
 
         (reserve0, reserve1, timestamp) = IUniswapV2Pair(assetToken).getReserves();
-        return accounts[owner].assets * reserve1 
+        return accounts[owner].assets * reserve0
                 / IUniswapV2Pair(assetToken).totalSupply();
     }
 
@@ -385,9 +385,6 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     function _updateBoost(address owner) internal {
         uint256 oldShares = accounts[owner].shares;
         uint256 newShares = oldShares;
-
-        console.log(accounts[owner].assets, getNewoLocked(owner), getNewoShare(owner));
-
         if (getNewoShare(owner) >= getNewoLocked(owner))
             newShares = accounts[owner].assets * getMultiplier(owner);
         if (newShares > oldShares) {
