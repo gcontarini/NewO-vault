@@ -478,24 +478,32 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
             revert Unauthorized();
 
         // Update lockTime
+        // Always choose the date futher in the future
         uint256 unlockTime = block.timestamp + lockTime;
         if (_unlockDate[receiver] < unlockTime)
             _unlockDate[receiver] = unlockTime;
-        else
-            _unlockDate[receiver] += lockTime;
         
-        shares = convertToShares(assets, lockTime);
-        
-        // Mint ve
-        _totalSupply += shares;
-        _shareBalances[receiver] += shares;
-        emit Mint(receiver, shares);
-
         // Update assets
         _totalManagedAssets += assets;
         _assetBalances[receiver] += assets;
-        
         IERC20(_assetTokenAddress).safeTransferFrom(receiver, address(this), assets);
+
+        // Mint or burn veTokens
+        // The multiplier is always
+        // from the last deposit
+        shares = convertToShares(_assetBalances[owner], lockTime);
+        uint256 oldShares = _shareBalances[owner];
+        if (oldShares < shares) {
+            uint256 diff = shares - oldShares;
+            _totalSupply += diff;
+            emit Mint(receiver, diff);
+        } else if (oldShares > shares) {
+            uint256 diff = oldShares - shares;
+            _totalSupply -= diff;
+            emit Burn(receiver, diff);
+        }
+        _shareBalances[receiver] = shares;
+
         emit Deposit(msg.sender, receiver, assets, shares);
         return shares;
     }
@@ -510,40 +518,31 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         
         // To kickout someone
         if (msg.sender != owner) {
+            // Must send the funds to owner
             if (receiver != owner)
                 revert Unauthorized();
-            // Must check what happens for negative value in the block.timestamp
-            if (_lockTimer.enforce && (block.timestamp - _unlockDate[owner] <= _penalty.gracePeriod))
+            // Only kickout after gracePeriod
+            if (_lockTimer.enforce && (block.timestamp < _unlockDate[owner] + _penalty.gracePeriod))
                 revert FundsInGracePeriod();
+            // Pay reward to caller
+            assets -= _payPenalty(owner, assets);
         }
-        else if (_lockTimer.enforce && block.timestamp <= _unlockDate[owner])
+        // Self withdraw
+        else if (_lockTimer.enforce && block.timestamp < _unlockDate[owner])
             revert FundsNotUnlocked();
-        
-        shares = assets * avgVeMult(owner) / PRECISION;
-        if (_shareBalances[owner] < shares)
-            revert InsufficientBalance({
-                available: _shareBalances[owner],
-                required: shares
-            });
-        
-        // Pay reward to caller
-        uint256 amountPenalty = 0;
-        if (msg.sender != owner) {
-            amountPenalty = _payPenalty(owner, assets);
-        }
-        assets -= amountPenalty;
-
-        // Burn ve tokens
-        _totalSupply -= shares;
-        _shareBalances[owner] -= shares;
-        emit Burn(owner, shares);
 
         // Withdraw assets
         _totalManagedAssets -= assets;
         _assetBalances[owner] -= assets;
-
         IERC20(_assetTokenAddress).safeTransfer(receiver, assets);
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
+
+        // Burn ve tokens to make shares 1:1 with assets
+        shares = _assetBalances[owner];
+        uint256 diff = _shareBalances[owner] - shares;
+        _shareBalances[owner] = shares;
+        _totalSupply -= diff;
+        emit Burn(owner, diff);
         return shares;
     }
 

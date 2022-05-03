@@ -398,16 +398,18 @@ describe("veNewo tests", async function () {
         });
     });
 
+    // Try lock, withdraw and stake again
+    // Try mint function, and redeem
     /* possible cases */
     testLock(days(90), days(30), 100);
     testLock(years(3), days(30), 100);
     testKickUser(days(90), days(30), 100);
     testKickUser(years(3), days(30), 100);
     testLockAndRelock(years(1), days(90), days(30), years(1), 50, 50);
+    testLockAndRelock(years(2), days(90), days(6 * 30), days(30), 57, 13);
 
     /**
      * Write something
-     * @param totalLockPeriod 
      * @param lockPeriod1 
      * @param lockPeriod2 
      * @param waitPeriod1 
@@ -421,12 +423,11 @@ describe("veNewo tests", async function () {
         waitPeriod1: number,
         waitPeriod2: number,
         depositAmount1: number,
-        depositAmount2: number
+        depositAmount2: number,
     ) {
         const numDays = Math.round(lockPeriod1 / 86400);
         const numDaysW1 = Math.round(waitPeriod1 / 86400);
         const numDaysLock2 = Math.round(waitPeriod2 / 86400);
-        // const restOfThePeriod = totalLockPeriod - initialWaitPeriod;
 
         describe(`Lock for ${numDays} days with restaking after ${numDaysW1} days for more ${numDaysLock2}.`, () => {
             before(initialize);
@@ -466,7 +467,7 @@ describe("veNewo tests", async function () {
                     ).to.be.revertedWith("FundsNotUnlocked()");
             });
             it("Partial withdraw in date", async () => {
-                await timeTravel(lockPeriod1 + lockPeriod2);
+                await timeTravel(lockPeriod1 + lockPeriod2 - waitPeriod1);
                 
                 const {balVeNewo: sharesBefore, balStakeNewo: assetsBefore} = await checkBalances(addr1);
                 const avgMult = BigNumber.from(sharesBefore).mul(100).div(BigNumber.from(assetsBefore));
@@ -479,39 +480,45 @@ describe("veNewo tests", async function () {
                         await addr1.getAddress())
                 
                 const {balVeNewo: sharesAfter, balStakeNewo: assetsAfter} = await checkBalances(addr1);
-                const shares = BigNumber.from(sharesBefore).sub(BigNumber.from(sharesAfter));
+                const shares = (sharesBefore as BigNumber).sub(sharesAfter as BigNumber);
 
                 expect(shares).to.equal(expectedBurnShares);
             });
             it("Being kicked by someone else but not in date", async () => {
-                const newEndDate = baseDate + lockPeriod1 + lockPeriod2;
-                expect(
-                    await veNewo.unlockDate(await addr1.getAddress())
-                    ).to.equal(newEndDate);
+                await expect(
+                    veNewo.connect(addr2)
+                    .withdraw(
+                        parseNewo(depositAmount2),
+                        address(addr1),
+                        address(addr1))
+                    ).to.be.revertedWith("FundsInGracePeriod()");
             });
-            // it("Being kicked by someone else in date", async () => {
-            //     const newEndDate = baseDate + lockPeriod1 + lockPeriod2;
-            //     expect(
-            //         await veNewo.unlockDate(await addr1.getAddress())
-            //         ).to.equal(newEndDate);
-            // });
-            // it("Value is correct for depositer", async () => {
-            //     const newEndDate = baseDate + lockPeriod1 + lockPeriod2;
-            //     expect(
-            //         await veNewo.unlockDate(await addr1.getAddress())
-            //         ).to.equal(newEndDate);
-            // });
-            // it("Reward is correct for kicker", async () => {
-            //     const newEndDate = baseDate + lockPeriod1 + lockPeriod2;
-            //     expect(
-            //         await veNewo.unlockDate(await addr1.getAddress())
-            //         ).to.equal(newEndDate);
-            // });
+            it("Being kicked by someone else in date", async () => {
+                await timeTravel(waitPeriod2);
+
+                const {balNewo: kickerBefore} = await checkBalances(addr2);
+                
+                const tx = await veNewo.connect(addr2)
+                        .withdraw(
+                            parseNewo(depositAmount2),
+                            address(addr1),
+                            address(addr1));
+
+                const r = await tx.wait();
+
+                // console.log("ADSADASDASF", r);
+                
+                const {balNewo: kickerAfter} = await checkBalances(addr2);
+                const {balVeNewo: kickedShares, balStakeNewo: kickedStaked} = await checkBalances(addr1);
+                // console.log("SHARES", kickerAfter);
+                // console.log("STAKED", kickerBefore);
+
+                expect(kickedShares).to.be.equal(0);
+                expect(kickedStaked).to.be.equal(0);
+                expect(kickerAfter).to.be.gt(kickerBefore);
+            });
         });
     }
-
-    // Try lock, withdraw and stake again
-    // Try mint function, and redeem
 
     /**
      * test locking cases
