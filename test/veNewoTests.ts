@@ -433,8 +433,9 @@ describe("veNewo tests", async function () {
             before(initialize);
 
             let baseDate: number;
+            let unlockDate: number;
 
-            it("Total amount locked is the sum of 2 locks", async () => {
+            it("Total asset deposited is the sum of 2 deposits", async () => {
                 await userDeposit(lockPeriod1, parseNewo(depositAmount1));
                 
                 // Get time when deposit happened
@@ -450,13 +451,15 @@ describe("veNewo tests", async function () {
                     await veNewo.assetBalanceOf(await addr1.getAddress())
                     ).to.equal(parseNewo(depositAmount1 + depositAmount2));
             });
-            it("Total time locked is equal sum lock times", async () => {
-                const newEndDate = baseDate + lockPeriod1 + lockPeriod2;
+            it("Unlock date is the futherest date in the future", async () => {
+                const unlockDateFirst = baseDate + lockPeriod1
+                const unlockDateSecond = baseDate + waitPeriod1 + lockPeriod2;
+                unlockDate = unlockDateFirst >= unlockDateSecond ? unlockDateFirst : unlockDateSecond;
+
                 expect(
                     await veNewo.unlockDate(await addr1.getAddress())
-                    ).to.equal(newEndDate);
+                    ).to.equal(unlockDate);
             });
-            // Continue from here
             it("Try self withdraw but not in date", async () => {
                 await expect(
                     veNewo.connect(addr1)
@@ -467,7 +470,9 @@ describe("veNewo tests", async function () {
                     ).to.be.revertedWith("FundsNotUnlocked()");
             });
             it("Partial withdraw in date", async () => {
-                await timeTravel(lockPeriod1 + lockPeriod2 - waitPeriod1);
+                const blockNumBefore = await ethers.provider.getBlockNumber();
+                const blockBefore = await ethers.provider.getBlock(blockNumBefore);
+                await timeTravel(unlockDate - blockBefore.timestamp);
                 
                 const {balVeNewo: sharesBefore, balStakeNewo: assetsBefore} = await checkBalances(addr1);
                 const avgMult = BigNumber.from(sharesBefore).mul(100).div(BigNumber.from(assetsBefore));
@@ -491,27 +496,21 @@ describe("veNewo tests", async function () {
                         parseNewo(depositAmount2),
                         address(addr1),
                         address(addr1))
-                    ).to.be.revertedWith("FundsInGracePeriod()");
+                    ).to.be.revertedWith("FundsNotUnlocked()");
             });
             it("Being kicked by someone else in date", async () => {
                 await timeTravel(waitPeriod2);
 
                 const {balNewo: kickerBefore} = await checkBalances(addr2);
                 
-                const tx = await veNewo.connect(addr2)
+                await veNewo.connect(addr2)
                         .withdraw(
                             parseNewo(depositAmount2),
                             address(addr1),
                             address(addr1));
-
-                const r = await tx.wait();
-
-                // console.log("ADSADASDASF", r);
                 
                 const {balNewo: kickerAfter} = await checkBalances(addr2);
                 const {balVeNewo: kickedShares, balStakeNewo: kickedStaked} = await checkBalances(addr1);
-                // console.log("SHARES", kickerAfter);
-                // console.log("STAKED", kickerBefore);
 
                 expect(kickedShares).to.be.equal(0);
                 expect(kickedStaked).to.be.equal(0);

@@ -380,7 +380,7 @@ describe("xNewo tests", function () {
                 .deposit(lpEarned, address(addr1));
             
             const newoLpShares = await xNewo.getNewoShare(address(addr1));
-            expect(newoLpShares).to.be.equal(newoPool);
+            expect(newoLpShares).to.be.equal(newoPool.toString());
         });
     });
 
@@ -413,26 +413,19 @@ describe("xNewo tests", function () {
             
             await veNewo
                 .connect(addr1)
-                ["deposit(uint256,address,uint256)"](
-                    balNewoBefore,
-                    address(addr1),
-                    years(2)
+                ["deposit(uint256,address)"](
+                    balNewoBefore, address(addr1)
                 );
             
             expect(await veNewo
                 .balanceOf(address(addr1))
             ).to.not.equal(0);
-            
-            const { 
-                balVeNewo: balVeAfter,
-            } = await checkBalances(addr1);
-            
-            
-            expect(
-                (balVeAfter as BigNumber).mul("1000000000000000000").div(balNewoBefore)
-            ).to.be.equal(await xNewo
-                .getMultiplier(address(addr1))
-            );
+
+            // expect(await veNewo
+            //         .avgVeMult(address(addr1))
+            // ).to.be.equal(await xNewo
+            //         .getMultiplier(address(addr1))
+            //     );
         })
     });
 
@@ -658,9 +651,9 @@ describe("xNewo tests", function () {
             balLp: lpBalBefore 
         } = await checkBalances(signer);
 
-        // console.log(`\tadding liquidity by ${address(signer)}...\n\n`);
+        console.log(`\tadding liquidity by ${address(signer)}...\n\n`);
         
-        const test = await ROUTER.connect(signer).addLiquidity(
+        await ROUTER.connect(signer).addLiquidity(
             address(newoToken),
             address(USDC),
             parseNewo(NewoAmount),
@@ -670,7 +663,7 @@ describe("xNewo tests", function () {
             address(signer),
             999999999999,
         );
-
+        
         const { 
             balNewo: newOBalAfter,
             balUSDC: USDCBalAfter,
@@ -690,33 +683,33 @@ describe("xNewo tests", function () {
         const balXNewo = await balanceXNewo(signer);
         const balLp = await balanceLp(signer);
         const balUSDC = await balanceUSDC(signer);
-        // console.log("\tBalance report:");
+        console.log("\tBalance report:");
         
-        // console.log(
-        //     `\tbalance of newo of ${address(signer)}: ${formatNewo(
-        //         balNewo
-        //     )}`
-        // );
-        // console.log(
-        //     `\tbalance of veNewo of ${address(signer)}: ${formatVeNewo(
-        //         balVeNewo
-        //     )}`
-        // );
-        // console.log(
-        //     `\tbalance of XNewo of ${address(signer)}: ${formatXNewo(
-        //         balXNewo
-        //     )}`
-        // );
-        // console.log(
-        //     `\tbalance of Lp of ${address(signer)}: ${formatLp(
-        //         balLp
-        //     )}`
-        // );
-        // console.log(
-        //     `\tbalance of USDC of ${address(signer)}: ${formatUSDC(
-        //         balUSDC
-        //     )}\n`
-        // );
+        console.log(
+            `\tbalance of newo of ${address(signer)}: ${formatNewo(
+                balNewo
+            )}`
+        );
+        console.log(
+            `\tbalance of veNewo of ${address(signer)}: ${formatVeNewo(
+                balVeNewo
+            )}`
+        );
+        console.log(
+            `\tbalance of XNewo of ${address(signer)}: ${formatXNewo(
+                balXNewo
+            )}`
+        );
+        console.log(
+            `\tbalance of Lp of ${address(signer)}: ${formatLp(
+                balLp
+            )}`
+        );
+        console.log(
+            `\tbalance of USDC of ${address(signer)}: ${formatUSDC(
+                balUSDC
+            )}\n`
+        );
         return { balNewo, balVeNewo , balXNewo, balLp, balUSDC };
     }
 });
