@@ -603,7 +603,7 @@ describe("veNewo tests", async function () {
                             address(addr1)
                         )
                 ).to.be.revertedWith(
-                    "reverted with panic code 0x11 (Arithmetic operation underflowed or overflowed outside of an unchecked block)"
+                    "FundsNotUnlocked()"
                 );
             });
 
@@ -620,7 +620,7 @@ describe("veNewo tests", async function () {
                             address(addr1),
                             address(addr1)
                         )
-                ).to.be.revertedWith("FundsInGracePeriod()");
+                ).to.be.revertedWith("FundsNotUnlocked()");
             });
 
             it("other user should be able to kick out the user after the grace period", async () => {

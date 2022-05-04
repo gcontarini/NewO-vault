@@ -328,16 +328,16 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
             ) / CONVERT_PRECISION;
     }
     
-    /**
-     * Returns the average ve multipler applied to an address
-     */
-    function avgVeMult(address owner) internal view returns (uint256) {
-        // Protect against zero division
-        if (_assetBalances[owner] == 0) {
-            return 0;
-        }
-        return _shareBalances[owner] * PRECISION / _assetBalances[owner];
-    }
+    // /**
+    //  * Returns the average ve multipler applied to an address
+    //  */
+    // function avgVeMult(address owner) internal view returns (uint256) {
+    //     // Protect against zero division
+    //     if (_assetBalances[owner] == 0) {
+    //         return 0;
+    //     }
+    //     return _shareBalances[owner] * PRECISION / _assetBalances[owner];
+    // }
 
     /* ========== MUTATIVE FUNCTIONS ========== */
 
@@ -375,7 +375,14 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
             nonReentrant
             notPaused
             returns (uint256 assets) {
-        assets = convertToAssets(shares, lockTime);
+        uint256 updatedShares = convertToShares(_assetBalances[receiver], lockTime);
+        if (updatedShares > _shareBalances[receiver]) {
+            uint256 diff = updatedShares - _shareBalances[receiver];
+            assets = convertToAssets(shares - diff, lockTime);
+        } else {
+            uint256 diff = _shareBalances[receiver] - updatedShares;
+            assets = convertToAssets(shares + diff, lockTime);
+        }
         _deposit(assets, receiver, lockTime);
         return assets;
     }
@@ -386,7 +393,14 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
             nonReentrant
             notPaused
             returns (uint256 assets) {
-        assets = convertToAssets(shares, _lockTimer.min);
+        uint256 updatedShares = convertToShares(_assetBalances[receiver], _lockTimer.min);
+        if (updatedShares > _shareBalances[receiver]) {
+            uint256 diff = updatedShares - _shareBalances[receiver];
+            assets = convertToAssets(shares - diff, _lockTimer.min);
+        } else {
+            uint256 diff = _shareBalances[receiver] - updatedShares;
+            assets = convertToAssets(shares + diff, _lockTimer.min);
+        }
         _deposit(assets, receiver, _lockTimer.min);
         return assets;
     }
@@ -408,11 +422,11 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
             nonReentrant 
             notPaused
             returns (uint256 assets) {
-        assets = shares * PRECISION / avgVeMult(owner);
-        // This is for testing only
-        uint256 testShares = _withdraw(assets, receiver, owner);
-        require(testShares == shares, "DEBUG ONLY");
-        
+        uint256 diff = _shareBalances[owner] - _assetBalances[owner];
+        if (shares >= diff)
+            revert Unauthorized();
+        assets = shares - diff;
+        _withdraw(assets, receiver, owner);
         return assets;
     }
 
@@ -472,7 +486,13 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
 
     /* ========== INTERNAL FUNCTIONS ========== */
     
-    function _deposit(uint256 assets, address receiver, uint256 lockTime) internal returns (uint256 shares) {
+    function _deposit(
+        uint256 assets,
+        address receiver,
+        uint256 lockTime
+        ) internal 
+        updateShares(receiver, lockTime)
+        returns (uint256 shares) {
         if (assets <= 0 || msg.sender != receiver
             || lockTime < _lockTimer.min || lockTime > _lockTimer.max)
             revert Unauthorized();
@@ -488,34 +508,28 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         _assetBalances[receiver] += assets;
         IERC20(_assetTokenAddress).safeTransferFrom(receiver, address(this), assets);
 
-        // Mint or burn veTokens
-        // The multiplier is always
-        // from the last deposit
-        shares = convertToShares(_assetBalances[owner], lockTime);
-        uint256 oldShares = _shareBalances[owner];
-        if (oldShares < shares) {
-            uint256 diff = shares - oldShares;
-            _totalSupply += diff;
-            emit Mint(receiver, diff);
-        } else if (oldShares > shares) {
-            uint256 diff = oldShares - shares;
-            _totalSupply -= diff;
-            emit Burn(receiver, diff);
-        }
-        _shareBalances[receiver] = shares;
-
+        // The end balance of shares can be
+        // lower than the amount returned by
+        // this function
+        shares = convertToShares(assets, lockTime);
         emit Deposit(msg.sender, receiver, assets, shares);
         return shares;
     }
-    
-    function _withdraw(uint256 assets, address receiver, address owner) internal returns (uint256 shares) {
+
+    function _withdraw(
+        uint256 assets,
+        address receiver,
+        address owner
+        ) internal
+        updateShares(receiver, _lockTimer.min)
+        returns (uint256 shares) {
         if (owner == address(0)) revert Unauthorized();
         if (_assetBalances[owner] < assets)
             revert InsufficientBalance({
                 available: _assetBalances[owner],
                 required: assets
             });
-        
+
         // To kickout someone
         if (msg.sender != owner) {
             // Must send the funds to owner
@@ -523,7 +537,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
                 revert Unauthorized();
             // Only kickout after gracePeriod
             if (_lockTimer.enforce && (block.timestamp < _unlockDate[owner] + _penalty.gracePeriod))
-                revert FundsInGracePeriod();
+                revert FundsNotUnlocked();
             // Pay reward to caller
             assets -= _payPenalty(owner, assets);
         }
@@ -535,14 +549,11 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         _totalManagedAssets -= assets;
         _assetBalances[owner] -= assets;
         IERC20(_assetTokenAddress).safeTransfer(receiver, assets);
+        // The end balance of shares can be
+        // lower than the amount returned by
+        // this function
+        shares = assets;
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
-
-        // Burn ve tokens to make shares 1:1 with assets
-        shares = _assetBalances[owner];
-        uint256 diff = _shareBalances[owner] - shares;
-        _shareBalances[owner] = shares;
-        _totalSupply -= diff;
-        emit Burn(owner, diff);
         return shares;
     }
 
@@ -557,7 +568,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         }
         amountPenalty = (assets * penaltyAmount) / 100;
 
-        // Makes sense????
+        // Safety check 
         if (_assetBalances[owner] < amountPenalty)
             revert InsufficientBalance({
                 available: _assetBalances[owner],
@@ -571,7 +582,32 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         emit PayPenalty(msg.sender, owner, amountPenalty);
         return amountPenalty;
     }
-
+    
+    /**
+     * Update the correct amount of shares
+     * In case of a deposit, always consider
+     * the last lockTime for the multiplier.
+     * But the unlockDate will always be the
+     * one futherest in the future.
+     * In a case of a withdraw, the min multiplier
+     * is applied for the leftover assets in vault. 
+     */
+    modifier updateShares(address receiver, uint256 lockTime) {
+        _;
+        uint256 shares = convertToShares(_assetBalances[receiver], lockTime);
+        uint256 oldShares = _shareBalances[receiver];
+        if (oldShares < shares) {
+            uint256 diff = shares - oldShares;
+            _totalSupply += diff;
+            emit Mint(receiver, diff);
+        } else if (oldShares > shares) {
+            uint256 diff = oldShares - shares;
+            _totalSupply -= diff;
+            emit Burn(receiver, diff);
+        }
+        _shareBalances[receiver] = shares;
+    }
+    
     /* ========== EVENTS ========== */
 
     event PayPenalty(address indexed caller, address indexed owner, uint256 assets);
