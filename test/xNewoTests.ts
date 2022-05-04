@@ -599,7 +599,7 @@ describe("xNewo tests", function () {
 
     describe("", () => {
         before(initialize);
-        it("If address locked newo for more than min locktime but address has less newO locked than staked hes bonus should 0", async () => {
+        it("If address locked newo for more than min locktime but address has less newO locked than staked hes bonus should be 0", async () => {
             const newoToLock = 100;
             await addSushiLiquidity(addr1, 1000, 70);
 
@@ -623,6 +623,33 @@ describe("xNewo tests", function () {
 
         })
     })
+
+    describe("", () => {
+        before(initialize);
+        it("If address locked newo for more than min locktime and address has same amount of newO locked and staked, hes bonus should be positive", async () => {
+            const {lpAdded: lpEarned , newoAdded: newoStaked} = await addSushiLiquidity(addr1, 100, 7);
+            const newoToLock = newoStaked;
+
+            const { balLp: balLpBefore } = await checkBalances(addr1);
+
+            await veNewo
+                .connect(addr1)
+                ["deposit(uint256,address,uint256)"]
+                (newoToLock, address(addr1), years(2));
+            
+            await xNewo
+                .connect(addr1)
+                .deposit(lpEarned, address(addr1)
+            );
+
+            const {
+                balXNewo: balXAfter,
+            } = await checkBalances(addr1);
+
+            expect(balXAfter as BigNumber).to.gt(balLpBefore);
+        })
+    })
+
 
     async function addSushiLiquidity(signer: Signer, NewoAmount: number, USDCAmount: number){
         const { 
