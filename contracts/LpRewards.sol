@@ -17,7 +17,7 @@ import "hardhat/console.sol";
 // Custom errors
 error Unauthorized();
 error UnauthorizedClaim();
-error RewardTooHigh(uint256 allowed, uint256 rewardRate);
+error RewardTooHigh(uint256 allowed, uint256 reward);
 error NotWhitelisted();
 
 abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRecipient, IERC4626 {
@@ -34,7 +34,6 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     struct Total {
         uint256 managedAssets;
         uint256 supply;
-        uint256 rewards;
     }
     
     /* ========= STATE VARIABLES ========= */
@@ -243,8 +242,8 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         uint balance = IERC20(rewardsToken).balanceOf(address(this));
         if(rewardRate > balance / rewardsDuration)
             revert RewardTooHigh({
-                allowed: balance / rewardsDuration,
-                rewardRate: rewardRate
+                allowed: balance,
+                reward: reward
             });
         lastUpdateTime = block.timestamp;
         periodFinish = block.timestamp + rewardsDuration;
@@ -274,7 +273,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         uint256 assetBalance = veToken.assetBalanceOf(owner);
         
         // to make sure that there is no division by zero
-        if(assetBalance == 0)
+        if (assetBalance == 0)
             return 1;
         return veToken.balanceOf(owner) * PRECISION / assetBalance;   
     }

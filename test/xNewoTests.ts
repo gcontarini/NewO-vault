@@ -175,7 +175,7 @@ describe("xNewo tests", function () {
             lPAddress,
             newoTokenAddress, 
             veNewo.address, 
-            ownerAddress
+            TreasuryAddress
         );
         await xNewo.deployed()
         balanceXNewo = balance(xNewo);
@@ -420,12 +420,6 @@ describe("xNewo tests", function () {
             expect(await veNewo
                 .balanceOf(address(addr1))
             ).to.not.equal(0);
-
-            // expect(await veNewo
-            //         .avgVeMult(address(addr1))
-            // ).to.be.equal(await xNewo
-            //         .getMultiplier(address(addr1))
-            //     );
         })
     });
 
@@ -533,7 +527,7 @@ describe("xNewo tests", function () {
 
     describe("", () => {
         before(initialize);
-        it("If address locked newo for more than min locktime and address has more newO locked than staked, hes bonus is positive", async () => {
+        it("If address locked newo for more than min locktime and address has more newO locked than staked, his bonus is positive", async () => {
             const newoToLock = 1000;
             await addSushiLiquidity(addr1, 100, 7);
 
@@ -559,7 +553,7 @@ describe("xNewo tests", function () {
 
     describe("", () => {
         before(initialize);
-        it("If address locked newo for more than min locktime and address has more newO locked than staked, hes bonus should be equal to veMult", async () => {
+        it("If address locked newo for more than min locktime and address has more newO locked than staked, his bonus should be equal to veMult", async () => {
             const newoToLock = 1000;
             await addSushiLiquidity(addr1, 100, 7);
 
@@ -621,14 +615,13 @@ describe("xNewo tests", function () {
         before(initialize);
         it("If address locked newo for more than min locktime and address has same amount of newO locked and staked, hes bonus should be positive", async () => {
             const {lpAdded: lpEarned , newoAdded: newoStaked} = await addSushiLiquidity(addr1, 100, 7);
-            const newoToLock = newoStaked;
 
             const { balLp: balLpBefore } = await checkBalances(addr1);
 
             await veNewo
                 .connect(addr1)
                 ["deposit(uint256,address,uint256)"]
-                (newoToLock, address(addr1), years(2));
+                (newoStaked, address(addr1), years(2));
             
             await xNewo
                 .connect(addr1)
@@ -643,6 +636,95 @@ describe("xNewo tests", function () {
         })
     })
 
+    describe("Testing Rewards", () => {
+        before(initialize);
+        it("notifyRewardAmount should only be callable by Rewards Distributor", async () => {
+            const numberOfTokens = parseNewo(1000)
+            await expect(xNewo
+                .connect(addr1)
+                .notifyRewardAmount(numberOfTokens)
+            ).to.be.reverted;
+        })
+        it("Rewards token is NewO token", async () => {
+            expect(await xNewo
+                .rewardsToken()
+            ).to.be.equal(newoTokenAddress);
+        });
+        it("If vault has no rewards to distribute, calling notifyRewardAmount should revert", async () => {
+            const numberOfTokens = parseNewo(1000)
+            await expect(xNewo
+                .connect(treasury)
+                .notifyRewardAmount(numberOfTokens)
+            ).to.be.revertedWith("RewardTooHigh");
+        });
+        it("setRewardsDuration() should revert if not called by owner", async () => {
+            await expect(xNewo
+                .connect(addr1)
+                .setRewardsDuration(days(20))
+            ).to.be.revertedWith("Only the contract owner may perform this action");
+        });
+        it("setRewardsDuration() should set the right rewards duration", async () => {
+            await xNewo
+                .connect(owner)
+                .setRewardsDuration(days(20))
+            
+            expect(await xNewo
+                .rewardsDuration()
+            ).to.be.equal(days(20));
+        });
+        it("notifyRewardAmount() should set the right reward rate", async () => {
+            const {
+                lpAdded: lpEarned
+            } = await addSushiLiquidity(addr1, 10000, 700);
+
+            const tokensToReward = parseNewo(10000);
+            await newoToken
+                .connect(treasury)
+                .transfer(address(xNewo),tokensToReward);
+
+            await xNewo
+                .connect(treasury)
+                .notifyRewardAmount(tokensToReward);
+            
+            await xNewo
+                .connect(addr1)
+                .deposit(lpEarned, address(addr1));
+
+            const rewardRate = (tokensToReward as BigNumber).div(days(20))
+            const rewardR = await xNewo.rewardRate();
+
+            expect(rewardR).to.be.equal(rewardRate); 
+        });
+        it("getRewardForDuration() should return the right reward for the duration", async () => {
+            const tokensToReward = parseNewo(10000);
+            const rewardRate = (tokensToReward as BigNumber).div(days(20));
+            const rewardDuration = await xNewo.getRewardForDuration();
+            
+            expect(rewardDuration)
+                .to.be.equal((rewardRate as BigNumber)
+                .mul(days(20))
+            );
+        });
+        it("getReward() should transfer reward", async () => {
+            const { balNewo: balNewoBefore } = await checkBalances(addr1)
+            timeTravel(days(30));
+            
+            await xNewo.connect(addr1).getReward();
+            const { balNewo: balNewoAfter } = await checkBalances(addr1)
+
+            expect(balNewoAfter).to.gt(balNewoBefore);
+        })
+    })
+
+    describe("Testing Rewards hardcore mode", () => {
+        before(initialize);
+        it("should test", async () => {
+            await setReward(1000, days(20));
+            expect(await xNewo
+                .rewardsDuration()
+            ).to.be.equal(days(20));
+        })
+    })
 
     async function addSushiLiquidity(signer: Signer, NewoAmount: number, USDCAmount: number){
         const { 
@@ -675,6 +757,26 @@ describe("xNewo tests", function () {
         const lpAdded = (lpBalAfter as BigNumber).sub(lpBalBefore);
         
         return { newoAdded, USDCAdded, lpAdded }
+    }
+
+    async function setReward(rewardAmount: number, distributionPeriod: number) {
+
+        const tokensToReward = parseNewo(rewardAmount);
+        
+        console.log("\n Setting distribution reward");
+        
+        await xNewo
+            .connect(owner)
+            .setRewardsDuration(distributionPeriod)
+
+        await newoToken
+            .connect(treasury)
+            .transfer(address(xNewo),tokensToReward);
+
+        await xNewo
+            .connect(treasury)
+            .notifyRewardAmount(tokensToReward);
+
     }
 
     async function checkBalances(signer: Signer) {
