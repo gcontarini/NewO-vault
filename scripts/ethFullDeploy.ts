@@ -48,65 +48,6 @@ async function main() {
 	console.log("\nrewardNewO deployed at:", rewardNewO.address);
 	console.log("\nxNewo deployed at:", xNewo.address)
 
-	/* ==================== Testing xNewO vault =================== */
-	const testAccount = "0xdb36b23964FAB32dCa717c99D6AEFC9FB5748f3a";
-
-	// Impersonate an account that has NewOLP tokens and NewO tokens
-	// https://etherscan.io/address/0xdb36b23964FAB32dCa717c99D6AEFC9FB5748f3a
-	await hre.network.provider.request({
-		method: "hardhat_impersonateAccount",
-		params: [testAccount],
-	});
-	// Grant more gas to this sucker
-	await hre.network.provider.send("hardhat_setBalance", [
-		testAccount,
-		"0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-	  ]);
-
-	const txOpt2 = {
-		gasPrice: baseFee,
-		gasLimit: "0xf21620" // hardcoding a gas limit to work
-	};
-
-	const signer = await ethers.getSigner(testAccount);
-
-	// Transfer NewO to Rewards Contract
-	const numberOfTokens = ethers.utils.parseUnits('0.00000001', 18);
-	await newoToken.connect(signer).transfer(rewardNewO.address, numberOfTokens);
-	
-	// Notify Reward amount (the caller must be rewardDistribution)
-	await rewardNewO.connect(deployer).notifyRewardAmount(numberOfTokens);
-
-	// Lock Newo for veNewo
-	await newoToken.connect(signer).approve(veNewo.address, numberOfTokens, txOpt2);
-
-	const years3 = 94608000;
-	const veLockTx = await veNewo.connect(signer)["deposit(uint256,address,uint256)"](numberOfTokens, signer.address, years3, txOpt2);
-	console.log("\nveLock tx: ", veLockTx.hash);
-	console.log("\nNewO locked: ", await veNewo.assetBalanceOf(signer.address));
-	console.log("\nveBalance:", await veNewo.balanceOf(signer.address));
-	
-	// Notify reward contract about deposit
-	await rewardNewO.connect(signer).notifyDeposit(txOpt2);
-
-	// Calculat how much LP tokens it can stake
-	const depositAmount = await lp.balanceOf(signer.address);
-	console.log("\nLP balance:", depositAmount);
-
-	// Get Newo multiplier calculated by the lpVault
-	const newoLpShare = await xNewo.getNewoShare(signer.address);
-	const xNewoMultiplier = await xNewo.getMultiplier(signer.address);
-	const newoLockedLp = await xNewo.getNewoLocked(signer.address);
-
-	console.log("\nNewo stacked on the Lp :" , newoLpShare, "\nMultiplier :", xNewoMultiplier, "\nNewo Locked on veVault: ", newoLockedLp);
-	
-	// Make allowance for LP tokens
-	lp.connect(signer).approve(xNewo.address, depositAmount, txOpt2);
-	// Stake LP to get xNewO
-	const txLpDeposit = await xNewo.connect(signer).deposit(depositAmount, signer.address, txOpt2);
-	console.log("\nStake LP tx:", txLpDeposit.hash);
-	console.log("\nLp staked balance: ", await xNewo.assetBalanceOf(signer.address))
-	console.log("\nxNewO balance:", await xNewo.balanceOf(signer.address));
 }
 
 main().catch((error) => {

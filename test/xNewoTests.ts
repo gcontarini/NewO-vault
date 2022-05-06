@@ -190,10 +190,16 @@ describe("xNewo tests", function () {
         );
         
         // Transfer some USDC to addr1 so he can add liquidity
-        const numberOfUSDCTokens = parseUSDC(11000);
+        const numberOfUSDCTokens = parseUSDC(1000);
         await USDC
             .connect(whale)
             .transfer(addr1Address, numberOfUSDCTokens
+        );
+        
+        // Transfer some USDC to addr2 so he can add liquidity
+        await USDC
+            .connect(whale)
+            .transfer(address(addr2), numberOfUSDCTokens
         );
 
         // approve the token to addr1
@@ -225,6 +231,30 @@ describe("xNewo tests", function () {
             .connect(addr1)
             .approve(
                 address(ROUTER),
+                "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        );
+
+        // aprove USDC spending to addr2
+        await USDC
+            .connect(addr2)
+            .approve(
+                address(ROUTER),
+                "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        );
+
+        // aprove NewO spending to addr2
+        await newoToken
+            .connect(addr2)
+            .approve(
+                address(ROUTER),
+                "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        );
+
+        // aprove lp spending to addr2
+        await lp
+            .connect(addr2)
+            .approve(
+                address(xNewo),
                 "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
         );
     };
@@ -716,13 +746,109 @@ describe("xNewo tests", function () {
         })
     })
 
-    describe("Testing Rewards hardcore mode", () => {
+    describe("Hardcore test", () => {
         before(initialize);
-        it("should test", async () => {
-            await setReward(1000, days(20));
-            expect(await xNewo
-                .rewardsDuration()
-            ).to.be.equal(days(20));
+        it("Accounts should earn rewards based on shares (addr1 has bonus)", async () => {
+            await setReward(10000, years(2));
+            const lpToStake = parseLp(0.0001);
+            const newoToLock = parseNewo(10000)
+            
+            await lp.connect(treasury)
+                .transfer(address(addr2), lpToStake)
+
+            await lp.connect(treasury)
+                .transfer(address(addr1), lpToStake)
+
+            await veNewo
+                .connect(addr1)
+                ["deposit(uint256,address,uint256)"]
+                (newoToLock, address(addr1), years(2));
+            
+            await xNewo
+                .connect(addr2)
+                .deposit(lpToStake, address(addr2))
+            
+            await xNewo
+                .connect(addr1)
+                .deposit(lpToStake, address(addr1))
+            
+            await timeTravel(years(2));
+
+            await xNewo.connect(addr2).getReward();
+            await xNewo.connect(addr1).getReward();
+
+            console.log("\n Account 1 after rewards");
+            
+            const { balNewo: balNewoAddr1After } = await checkBalances(addr1);
+
+            console.log("\n Account 2 after rewards");
+
+            const {balNewo: balNewoAddr2After} = await checkBalances(addr2);
+
+            expect(balNewoAddr1After).to.gt(balNewoAddr2After)
+        })
+    })
+
+    describe("Hardcore test", () => {
+        before(initialize);
+        it("Accounts should earn rewards based on shares(one accout has veNewoMultiplier and the other dont)", async () => {
+            await setReward(10000, years(2));
+
+            const newoToLp = 1000;
+            const USDCToLp = 350;
+
+            // give addr2 some newo
+            await newoToken
+                .connect(treasury)
+                .transfer(address(addr2), parseNewo(1000));
+
+            const {
+                lpAdded: lpAddr2,
+                newoAdded: newoToLpAddr2
+            } = await addSushiLiquidity(addr2, newoToLp, USDCToLp);
+                        
+            const {
+                lpAdded: lpAddr1,
+                newoAdded: newoToLpAddr1
+            } = await addSushiLiquidity(addr1, newoToLp, USDCToLp);
+            
+            console.log("Account 2 Newo added to Lp", newoToLpAddr2);
+            console.log("Account 1 Newo added to Lp", newoToLpAddr1);
+            
+            // addr1 lock newo for veNewo to earn bonus
+            await veNewo
+                .connect(addr1)
+                ["deposit(uint256,address,uint256)"]
+                (parseNewo(1000), address(addr1), years(2));            
+            
+            await xNewo
+                .connect(addr2)
+                .deposit(lpAddr2, address(addr2))
+            
+            await xNewo
+                .connect(addr1)
+                .deposit(lpAddr1, address(addr1))
+            
+            await timeTravel(years(2));
+
+            const {balNewo: balAddr1BeforeReward} = await checkBalances(addr1);
+            const {balNewo: balAddr2BeforeReward} = await checkBalances(addr2);
+
+            await xNewo.connect(addr2).getReward();
+            await xNewo.connect(addr1).getReward();
+
+            console.log("\n Account 1 after rewards");
+            
+            const {balNewo: balNewoAddr1After} = await checkBalances(addr1);
+
+            console.log("\n Account 2 after rewards");
+
+            const {balNewo: balNewoAddr2After} = await checkBalances(addr2);
+
+            const newoEarnedAddr1 = (balNewoAddr1After as BigNumber).sub(balAddr1BeforeReward)
+            const newoEarnedAddr2 = (balNewoAddr2After as BigNumber).sub(balAddr2BeforeReward)
+
+            expect(newoEarnedAddr1).to.gt(newoEarnedAddr2)
         })
     })
 
