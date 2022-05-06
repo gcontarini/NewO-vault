@@ -378,6 +378,8 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         uint256 updatedShares = convertToShares(_assetBalances[receiver], lockTime);
         if (updatedShares > _shareBalances[receiver]) {
             uint256 diff = updatedShares - _shareBalances[receiver];
+            if (shares <= diff)
+                revert Unauthorized();
             assets = convertToAssets(shares - diff, lockTime);
         } else {
             uint256 diff = _shareBalances[receiver] - updatedShares;
@@ -423,7 +425,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
             notPaused
             returns (uint256 assets) {
         uint256 diff = _shareBalances[owner] - _assetBalances[owner];
-        if (shares >= diff)
+        if (shares < diff)
             revert Unauthorized();
         assets = shares - diff;
         _withdraw(assets, receiver, owner);

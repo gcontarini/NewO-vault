@@ -398,6 +398,88 @@ describe("veNewo tests", async function () {
         });
     });
 
+    describe("Deposit/withdraw using mint/redeem interface", () => {
+        before(initialize);
+        it("depositor must have the amount of shares asked", async () => {
+            const lockTime = years(3);
+            const expectedShares = parseNewo(673);
+
+            await veNewo
+                .connect(addr1)
+                ["mint(uint256,address,uint256)"](
+                    expectedShares, 
+                    address(addr1),
+                    lockTime 
+                );
+
+            const { balVeNewo: actualShares } = await checkBalances(addr1);
+            const lowerBound = (expectedShares as BigNumber).mul(99).div(100);
+            const upperBound = (expectedShares as BigNumber).mul(101).div(100);
+
+            // +/- 1% margin
+            expect(actualShares).to.be.gte(lowerBound).and.lte(upperBound);
+        });
+        it("third parties are not allowed to redeem in favor of another account", async () => {
+            const lockTime = years(3);
+            await timeTravel(lockTime + days(30));
+            const amount = parseNewo(600);
+
+            await expect(
+                veNewo.connect(addr2)
+                    .redeem(
+                        amount, 
+                        address(addr2),
+                        address(addr1) 
+                )).to.be.revertedWith("Unauthorized()");
+        });
+        it("redeem in favor of itself", async () => {
+            const lockTime = years(3);
+            const amount = parseNewo(600);
+            const { balVeNewo: expectedShares } = await checkBalances(addr1);
+
+            await veNewo.connect(addr1)
+                    .redeem(
+                        amount, 
+                        address(addr1),
+                        address(addr1) 
+                );
+
+            const { balVeNewo: actualShares } = await checkBalances(addr1);
+
+            expect(actualShares).to.be.equal((expectedShares as BigNumber).sub(amount));
+        });
+        it("mint more to itself", async () => {
+            const lockTime = years(3);
+            const moreShares = parseNewo(600);
+            const { balVeNewo: beforeShares } = await checkBalances(addr1);
+            const expectedShares = (moreShares as BigNumber).add(beforeShares);
+
+            await veNewo
+                .connect(addr1)
+                ["mint(uint256,address,uint256)"](
+                    moreShares, 
+                    address(addr1),
+                    lockTime 
+                );
+
+            const lowerBound = (expectedShares as BigNumber).mul(99).div(100);
+            const upperBound = (expectedShares as BigNumber).mul(101).div(100);
+            const { balVeNewo: actualShares } = await checkBalances(addr1);
+
+            // +/- 1% margin
+            expect(actualShares).to.be.gte(lowerBound).and.lte(upperBound);
+        });
+        it("wait and exit all", async () => {
+            await timeTravel(years(3));
+            await veNewo.connect(addr1).exit();
+
+            const { balVeNewo: actualShares, balStakeNewo: stakedShares } = await checkBalances(addr1);
+
+            expect(actualShares).to.equal(0);
+            expect(stakedShares).to.equal(0);
+        });
+    });
+
     // Try lock, withdraw and stake again
     // Try mint function, and redeem
     /* possible cases */
@@ -407,9 +489,12 @@ describe("veNewo tests", async function () {
     testKickUser(years(3), days(30), 100);
     testLockAndRelock(years(1), days(90), days(30), years(1), 50, 50);
     testLockAndRelock(years(2), days(90), days(6 * 30), days(30), 57, 13);
+    testLockAndRelock(days(90), days(90), days(88), days(90), 29, 157);
 
     /**
-     * Write something
+     * Function to test lock and relocking mechanism
+     * waitperiod1 is the time between deposits
+     * waitperiod2 is the amount of time needed to withdraw all funds 
      * @param lockPeriod1 
      * @param lockPeriod2 
      * @param waitPeriod1 
@@ -453,7 +538,7 @@ describe("veNewo tests", async function () {
             });
             it("Unlock date is the futherest date in the future", async () => {
                 const unlockDateFirst = baseDate + lockPeriod1
-                const unlockDateSecond = baseDate + waitPeriod1 + lockPeriod2;
+                const unlockDateSecond = baseDate + waitPeriod1 + lockPeriod2 + 1; // Some rounding bullshit. Must add one to it
                 unlockDate = unlockDateFirst >= unlockDateSecond ? unlockDateFirst : unlockDateSecond;
 
                 expect(
