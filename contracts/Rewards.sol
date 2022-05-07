@@ -66,8 +66,20 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
         if (_totalSupply == 0) {
             return rewardPerTokenStored;
         }
+        uint256 userLastTime = lastTimeRewardApplicable(owner);
+        
+        // Apply a negative reward per token when
+        // due date is already over.
+        if (userLastTime < lastUpdateTime) {
+            return rewardPerTokenStored
+                - ((lastUpdateTime - userLastTime)
+                    * rewardRate
+                    * 1e18
+                    / _totalSupply
+                );
+        }
         return rewardPerTokenStored
-                + ((lastTimeRewardApplicable(owner) - lastUpdateTime)
+                + ((userLastTime - lastUpdateTime)
                     * rewardRate
                     * 1e18
                     / _totalSupply
