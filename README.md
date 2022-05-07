@@ -1,34 +1,69 @@
-# NewO vault system
-New vault system with veTokens and multiple rewards distribuition tokens.
+# NewO voting escrow vault system
+The following contracts implements a veToken for the NewOrder DAO (NWO).
+They were created to replace the old staking rewards contract, currently
+being used by the DAO to distribute rewards to their token holders.
+<br>
+The main goal is to create a veToken which works as a hub for
+the reward distribution tokens system. This contract (veVault)
+allows users to lock their ERC20 for a period of time. They receive
+veTokens for doing so, which are not transferable.
+<br>
+Afterwards, they can notify the Rewards contracts which will
+start paying rewards for them. Also, we implemented the LPReward
+contract, which allows for another type of rewards for liquidity
+providers. In this contract, the user locks their LP tokens and
+if they are veToken holders and the amount of tokens being
+provided is at least the same as the ones locked, a boost of rewards
+is granted. The boost is the same applied in the veVault.
+<br>
+# Instructions to run locally
+Go to repository root
+<br>
 
-# Instructions to run
 Create a .env file
-`echo ETH_MAINFORK=<INSERT URL PROVIDER WITH YOUR KEYS> >> .env`
+```shell
+echo ETH_MAINFORK=<INSERT URL PROVIDER WITH YOUR KEYS> >> .env
+```
 
-First install npm dependecies <br>
-`npm install`
-
-Now compile the contracts 
-`npx hardhat compile` <br>
-
+Install npm dependecies
+```shell
+npm install
+```
+<br>
+Compile the contracts 
+```shell
+npx hardhat compile
+```
+<br>
 Run a hardhat node
-`npx hardhat node` <br>
-
+```shell
+npx hardhat node
+```
+<br>
 Deploy the contracts
-`npx hardhat run --network localhost scripts/deploy.ts` <br>
+```shell
+npx hardhat run --network localhost scripts/deploy.ts
+```
+<br>
 
-# Developers
-## Branch strategy
-Development branch is the wip. Don't push to main/master.
-
-
-# MainNet scripts
-
-## Run a mainNet fork at your localhost
-`npx hardhat node --fork https://mainnet.infura.io/v3/26556cff548e498db5d4d07c6f5fa0f6`
-
+# Deploy to eth-mainnet
+Set .env file
+```shell
+echo "ETHEREUM_URL=<CHANGE TO YOUR PROVIDER WITH KEY>" >> .env
+echo "PRIVATE_KEY=<CHANGE TO DEPLOYER PRIVATE KEY>" >> .env
+```
+<br>
+Change the settings in scripts/ethDeploy.ts
+<br>
+Install npm dependecies
+```shell
+npm install
+```
+<br>
 ## Run the script
-`npx hardhat run scripts/ethDeploy.ts --network localhost`
+```shell
+npx hardhat run --network ethereum scripts/ethDeploy.ts
+```
 
 # Etherscan verification
 
@@ -45,7 +80,3 @@ Then, copy the deployment address and paste it in to replace `DEPLOYED_CONTRACT_
 ```shell
 npx hardhat verify --network ropsten DEPLOYED_CONTRACT_ADDRESS "Hello, Hardhat!"
 ```
-
-# Performance optimizations
-
-For faster runs of your tests and scripts, consider skipping ts-node's type checking by setting the environment variable `TS_NODE_TRANSPILE_ONLY` to `1` in hardhat's environment. For more details see [the documentation](https://hardhat.org/guides/typescript.html#performance-optimizations).

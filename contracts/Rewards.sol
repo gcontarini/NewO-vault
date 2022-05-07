@@ -9,6 +9,9 @@ import "./interfaces/IVeVault.sol";
 import "./RewardsDistributionRecipient.sol";
 import "./Pausable.sol";
 
+error RewardTooHigh();
+error RewardPeriodNotComplete(uint256 finish);
+
 contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
@@ -21,12 +24,12 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
     /* ========== STATE VARIABLES ========== */
 
     address public rewardsToken;
-    address public vault;                    //address of the ve vault
-    uint256 public periodFinish = 0;         //end of the rewardDuration period
-    uint256 public rewardRate = 0;           //Rewards per second distributed by the contract ==> rewardavailable / rewardDuration
-    uint256 public rewardsDuration = 7 days; //the rewards inside the contract are gone be distributed during this period
-    uint256 public lastUpdateTime;           //when the reward period started
-    uint256 public rewardPerTokenStored;     //amounts of reward per staked token
+    address public vault;                    // address of the ve vault
+    uint256 public periodFinish = 0;         // end of the rewardDuration period
+    uint256 public rewardRate = 0;           // rewards per second distributed by the contract ==> rewardavailable / rewardDuration
+    uint256 public rewardsDuration = 7 days; // the rewards inside the contract are gone be distributed during this period
+    uint256 public lastUpdateTime;           // when the reward period started
+    uint256 public rewardPerTokenStored;     // amounts of reward per staked token
 
     mapping(address => Account) public accounts;
 
@@ -125,7 +128,7 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
         // very high values of rewardRate in the earned and rewardsPerToken functions;
         // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
         uint balance = IERC20(rewardsToken).balanceOf(address(this));
-        require(rewardRate <= balance / rewardsDuration, "Provided reward too high");
+        if (rewardRate > balance / rewardsDuration) revert RewardTooHigh();
 
         lastUpdateTime = block.timestamp;
         periodFinish = block.timestamp + rewardsDuration;
@@ -138,10 +141,8 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
     }
 
     function setRewardsDuration(uint256 _rewardsDuration) external onlyOwner {
-        require(
-            block.timestamp > periodFinish,
-            "Previous rewards period must be complete"
-        );
+        if (block.timestamp <= periodFinish) revert RewardPeriodNotComplete(periodFinish);
+
         rewardsDuration = _rewardsDuration;
         emit RewardsDurationUpdated(rewardsDuration);
     }

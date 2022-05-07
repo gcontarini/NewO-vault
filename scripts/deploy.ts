@@ -1,5 +1,3 @@
-// When running the script with `npx hardhat run <script>` you'll find the Hardhat
-// Runtime Environment's members available in the global scope.
 import hre = require("hardhat");
 import { ethers } from "hardhat";
 
@@ -11,11 +9,11 @@ async function main() {
   const [deployer] = await ethers.getSigners();
   console.log("Current deployer addresses:", deployer.address);
 
-  // GET ALL CONTRACT FACTORIES HERE
-  // We get the contract to deploy
+  // Contract factories 
   const NewOrderToken = await ethers.getContractFactory("NewOrderToken");
-  // const StakingRewards = await ethers.getContractFactory("StakingRewards");
   const VeNewO = await ethers.getContractFactory("VeNewO");
+  const RewardNewO = await ethers.getContractFactory("Rewards");
+	const XNewO = await ethers.getContractFactory("XNewO");
 
   // Deploy ERC20 token
   const newo = await NewOrderToken.deploy(tokenSupply * 2);
@@ -27,31 +25,22 @@ async function main() {
   await xToken.deployed();
   console.log("xToken to provide liquidity", xToken.address);
 
-  // Deploy LP pool
-  // Needs a LP pool contract (Uniswap V2)
-
   // Deploy vault
   const veNewo = await VeNewO.deploy(deployer.address, newo.address, 604800, 7776000, 94608000, 2, 15, 5, 86400)
-  console.log("veNewO deployed to:", veNewo.address);
+  await veNewo.deployed();
   
+  // Deploy reward
+  const rewardNewO = await RewardNewO.deploy(deployer.address, veNewo.address, deployer.address, newo.address);
+	await rewardNewO.deployed();
+  
+  // Deploy LP pool
+  // Needs a LP pool contract (Uniswap V2)
   // Deploy LP reward
-  // const xNewo = await XNewO.deploy(deployer.address, lp.address, veNewo.address, rewardsDistribution.address);
+  // const xNewo = await XNewO.deploy(deployer.address, lp.address, newo.address, veNewo.address, deployer.address);
   
-  // Make allowance to veNewO
-  let amountLock = 500;
-  let lockTime = 7776000 + 10;
-  const allowance = await newo.approve(veNewo.address, amountLock);
-  // Lock nwo into veNwo
-  // Function overload -- ethers bug, must use full signature
-  const veLock = await veNewo["deposit(uint256,address,uint256)"] (amountLock, deployer.address, lockTime);
-
-  // Make allowance for LP in both tokens
-
-  // Transfer the both tokens to LP pool
-
-  // Make allowance for LP reward on LP pool
-
-  // Stake LP tokens on LP reward
+  console.log("veNewO deployed to:", veNewo.address);
+  console.log("rewardNewO deployed to:", rewardNewO.address);
+  // console.log("xNewo deployed to:", xNewo.address);
 }
 
 main().catch((error) => {
