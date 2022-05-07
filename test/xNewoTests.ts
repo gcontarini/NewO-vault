@@ -25,7 +25,6 @@ import {
     timeTravel,
     formatToken,
 } from "./utils";
-import { isBytesLike } from "ethers/lib/utils";
 
 const lPAddress = "0xc08ED9a9ABEAbcC53875787573DC32Eee5E43513";
 const newoTokenAddress = "0x98585dFc8d9e7D48F0b1aE47ce33332CF4237D96";
@@ -122,7 +121,7 @@ describe("xNewo tests", function () {
             params: [TreasuryAddress],
         });
 
-        // Grant more gas to this sucker
+        // Grant more gas to account
         await hre.network.provider.send("hardhat_setBalance", [
             TreasuryAddress,
             "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
@@ -135,7 +134,7 @@ describe("xNewo tests", function () {
             params: [WhaleAddress],
         });
 
-        // Grant more gas to this other sucker
+        // Grant more gas to account
         await hre.network.provider.send("hardhat_setBalance", [
             WhaleAddress,
             "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
@@ -996,7 +995,6 @@ describe("xNewo tests", function () {
             const newoRewardAddr2 = (balNewoAddr2AfterExit as BigNumber).sub(balNewoAddr2BeforeExit)
 
             // Check if rewards were fully distributed:
-
             const distributed = (newoRewardAddr1 as BigNumber).add(newoRewardAddr2)
 
             // +/- 0.001% margin
