@@ -347,8 +347,9 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     /* ========== RESTRICTED FUNCTIONS ========== */
     
     function _withdraw(uint256 assets, uint256 shares, address receiver, address owner) internal {
+        console.log(assets, accounts[owner].assets, accounts[owner].shares, shares);
         if(assets <= 0 || owner != msg.sender 
-            || accounts[owner].assets < assets 
+            || accounts[owner].assets < assets
             || (accounts[owner].shares - accounts[owner].sharesBoost) < shares)
             revert Unauthorized();
     
@@ -385,7 +386,6 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         uint256 oldShares = accounts[owner].shares;
         uint256 newShares = oldShares;
         if (getNewoShare(owner) <= getNewoLocked(owner)){
-            console.log(getNewoShare(owner), getNewoLocked(owner), accounts[owner].assets, getMultiplier(owner));
             newShares = accounts[owner].assets * getMultiplier(owner) / PRECISION;
         }
         if (newShares > oldShares) {

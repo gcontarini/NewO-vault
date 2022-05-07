@@ -25,6 +25,7 @@ import {
     timeTravel,
     formatToken,
 } from "./utils";
+import { isBytesLike } from "ethers/lib/utils";
 
 const lPAddress = "0xc08ED9a9ABEAbcC53875787573DC32Eee5E43513";
 const newoTokenAddress = "0x98585dFc8d9e7D48F0b1aE47ce33332CF4237D96";
@@ -819,7 +820,7 @@ describe("xNewo tests", function () {
             await veNewo
                 .connect(addr1)
                 ["deposit(uint256,address,uint256)"]
-                (parseNewo(1000), address(addr1), years(2));            
+                (parseNewo(1000), address(addr1), years(3));            
             
             await xNewo
                 .connect(addr2)
@@ -848,7 +849,58 @@ describe("xNewo tests", function () {
             const newoEarnedAddr1 = (balNewoAddr1After as BigNumber).sub(balAddr1BeforeReward)
             const newoEarnedAddr2 = (balNewoAddr2After as BigNumber).sub(balAddr2BeforeReward)
 
+            // Check if rewards were fully distributed:
+
+            const distributed = (newoEarnedAddr1 as BigNumber).add(newoEarnedAddr2)
+
+            expect(distributed).to.equal(parseNewo(10000));
+
+            expect (await xNewo.rewardRate()).to.be.equal(0);
+            expect(await xNewo.rewardPerTokenStored()).to.be.equal(0);
+            
+            console.log(newoEarnedAddr1, newoEarnedAddr2);
+            
             expect(newoEarnedAddr1).to.gt(newoEarnedAddr2)
+        });
+        it("If both address redeem everything the balance of assets and shares should be zero", async () => {
+            const { balXNewo: balXAddr1Before } = await checkBalances(addr1)
+            const { balXNewo: balXAddr2Before } = await checkBalances(addr2);
+
+            const lpStakedNewoAddr1 = await xNewo.assetBalanceOf(address(addr1));
+
+            await xNewo
+                .connect(addr1)
+                .withdraw(lpStakedNewoAddr1, address(addr1), address(addr1));
+            
+            // await xNewo
+            //     .connect(addr1)
+            //     .redeem(balXAddr1Before, address(addr1), address(addr1));
+
+            await xNewo
+                .connect(addr2)
+                .redeem(balXAddr2Before, address(addr2), address(addr2));
+
+            const {balXNewo: balXAddr1After} = await checkBalances(addr1)
+            const {balXNewo: balXAddr2After} = await checkBalances(addr2)
+
+            expect(balXAddr1After).to.be.equal(0)
+            expect(balXAddr2After).to.be.equal(0)
+
+            expect(await xNewo
+                .totalAssets()
+            ).to.be.equal(0)
+
+            expect(await xNewo
+                .balanceOf(address(addr1))
+            ).to.be.equal(0)
+
+            expect(await xNewo
+                .totalSupply()
+            ).to.be.equal(0)
+
+            expect(await xNewo
+                .balanceOf(address(addr2))
+            ).to.be.equal(0)
         })
     })
 
