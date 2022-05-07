@@ -9,8 +9,6 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "./Pausable.sol";
 import "./interfaces/IERC4626.sol";
 
-import "hardhat/console.sol";
-
 // Custom errors
 error Unauthorized();
 error InsufficientBalance(uint256 available, uint256 required);
@@ -67,8 +65,6 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     uint256 private constant K_2 = 74861590400;
     uint256 private constant K_1 = 116304927000000;
     uint256 private constant K = 90026564600000000;
-
-    
 
     /* ========== CONSTRUCTOR ========== */
 
@@ -137,6 +133,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     }
     
     /** 
+     * Compliant to the ERC4626 interface.
      * Maximum amount of the underlying asset that can be deposited into
      * the Vault for the receiver, through a deposit call.
      */
@@ -158,6 +155,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     }
     
     /**
+     * Compliant to the ERC4626 interface.
      * Maximum amount of shares that can be minted from the Vault for the receiver,
      * through a mint call.
      */
@@ -179,6 +177,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     }
     
     /**
+     * Compliant to the ERC4626 interface.
      * Maximum amount of the underlying asset that can be withdrawn from the
      * owner balance in the Vault, through a withdraw call.
      */
@@ -190,6 +189,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     }
 
     /**
+     * Compliant to the ERC4626 interface.
      * Allows an on-chain or off-chain user to simulate the effects of
      * their withdrawal at the current block, given current on-chain conditions.
      */
@@ -202,6 +202,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     }
     
     /**
+     * Compliant to the ERC4626 interface.
      * Maximum amount of Vault shares that can be redeemed from the owner
      * balance in the Vault, through a redeem call.
      */
@@ -213,6 +214,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     }
 
     /**
+     * Compliant to the ERC4626 interface.
      * Allows an on-chain or off-chain user to simulate the effects of their
      * redeemption at the current block, given current on-chain conditions.
      */
@@ -233,6 +235,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     }
 
     /**
+     * Compliant to the ERC4626 interface.
      * Total assets deposited by address
      */
     function assetBalanceOf(address account) external view returns (uint256) {
@@ -240,7 +243,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     }
 
     /**
-     * Unlock date for account
+     * Unlock date for an account
      */
     function unlockDate(address account) external view returns (uint256) {
         return _unlockDate[account];
@@ -254,8 +257,10 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     }
 
     /**
-     * Percentage paid to caller which withdraw veTokens
-     * in name of account.
+     * Percentage paid per epoch after grace period
+     * plus the minimum percentage
+     * This is paid to caller which withdraw veTokens
+     * in name of account in the underlying asset.
      */
     function penaltyPercentage() external view returns (uint256) {
         return _penalty.stepPerc;
@@ -318,6 +323,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * Granularity is lost with lockTime between days
      * This functions implements the following polynomial:
      * f(x) = x^3 * 1.54143856e-09 - x^2 * 7.48615904e-07 + x * 1.16304927e-03 + 9.00265646e-01
+     * Which can be simplified to:
      * f(x) = x^3 * K_3 - x^2 * K_2 + x * K_1 + K
      */
     function veMult(uint256 lockTime) internal pure returns (uint256) {
@@ -328,19 +334,26 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
             ) / CONVERT_PRECISION;
     }
     
-    // /**
-    //  * Returns the average ve multipler applied to an address
-    //  */
-    // function avgVeMult(address owner) internal view returns (uint256) {
-    //     // Protect against zero division
-    //     if (_assetBalances[owner] == 0) {
-    //         return 0;
-    //     }
-    //     return _shareBalances[owner] * PRECISION / _assetBalances[owner];
-    // }
-
     /* ========== MUTATIVE FUNCTIONS ========== */
 
+    /**
+     * Compliant to the ERC4626 interface.
+     * Mints shares Vault shares to receiver by
+     * depositing exactly amount of underlying tokens.
+     * Only allow deposits for caller equals receiver.
+     * When a relock is performed, the furtherest date
+     * in the future is the one selected.
+     * The multiplier is applied to the total amount
+     * of assets deposited since all value will be locked.
+     */
+    function deposit(uint256 assets, address receiver, uint256 lockTime)
+            external 
+            nonReentrant
+            notPaused 
+            returns (uint256 shares) {
+        return _deposit(assets, receiver, lockTime);
+    }
+    
     function deposit(uint256 assets, address receiver)
             override
             external
@@ -351,24 +364,17 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     }
     
     /**
-     * Mints shares Vault shares to receiver by
-     * depositing exactly amount of underlying tokens.
-     * Lock time is increased when restaking is done.
-     * Only allow deposits for the caller.
-     */
-    function deposit(uint256 assets, address receiver, uint256 lockTime)
-            external 
-            nonReentrant
-            notPaused 
-            returns (uint256 shares) {
-        return _deposit(assets, receiver, lockTime);
-    }
-    
-    /**
-     * Mints exactly shares Vault shares to
-     * receiver by depositing amount of underlying tokens.
-     * Lock time is increased when restaking is done.
-     * Only allow deposits for the caller.
+     * Not compliant to the ERC4626 interface
+     * since it doesn't mint the exactly amount
+     * of shares asked. The shares amount stays
+     * within a 0.001% margin.
+     * Mint shares for receiver by depositing
+     * the necessary amount of underlying tokens.
+     * Only allow deposits for caller equals receiver.
+     * When a relock is performed, the furtherest date
+     * in the future is the one selected.
+     * The multiplier is applied to the total amount
+     * of assets deposited since all value will be locked.
      */
     function mint(uint256 shares, address receiver, uint256 lockTime)
             external 
@@ -406,8 +412,20 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         _deposit(assets, receiver, _lockTimer.min);
         return assets;
     }
-
-    // Burns shares from owner and sends exactly assets of underlying tokens to receiver.
+    
+    /**
+     * Compliant to the ERC4626 interface
+     * Burns shares from owner and sends exactly
+     * assets of underlying tokens to receiver.
+     * Allows owner to send their assets to another
+     * address.
+     * A caller can only withdraw assets from owner
+     * to owner, receiving a reward for doing so.
+     * This reward is paid from owner asset balance.
+     * Can only withdraw after unlockDate and withdraw
+     * from another address after unlockDate plus grace
+     * period.
+     */
     function withdraw(uint256 assets, address receiver, address owner)
             override
             external 
@@ -417,7 +435,22 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         return _withdraw(assets, receiver, owner);
     }
 
-    // Burns exactly shares from owner and sends assets of underlying tokens to receiver.
+    /**
+     * Not compliant to the ERC4626 interface
+     * since it doesn't burn the exactly amount
+     * of shares asked. The shares amount stays
+     * within a 0.001% margin.
+     * Burns shares from owner and sends the correct
+     * amount of underlying tokens to receiver.
+     * Allows owner to send their assets to another
+     * address.
+     * A caller can only withdraw assets from owner
+     * to owner, receiving a reward for doing so.
+     * This reward is paid from owner asset balance.
+     * Can only withdraw after unlockDate and withdraw
+     * from another address after unlockDate plus grace
+     * period.
+     */
     function redeem(uint256 shares, address receiver, address owner)
             override
             external 
@@ -432,7 +465,9 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         return assets;
     }
 
-    // Withdraw all funds for caller
+    /**
+     * Withdraw all funds for the caller
+     */
     function exit()
             external 
             nonReentrant 
@@ -442,15 +477,16 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     }
 
     /**
-    * Change the unlock rule to allow
-    * withdraws. Ignores the rule if set to false.
+    * Owner can change the unlock rule to allow
+    * withdraws before unlock date.
+    * Ignores the rule if set to false.
     */
     function changeUnlockRule(bool flag) external onlyOwner {
         _lockTimer.enforce = flag;
     }
 
     /**
-     * Change state variabes which controls the penalty system
+     * Owner can change state variabes which controls the penalty system
      */
     function changeGracePeriod(uint256 newGracePeriod) external onlyOwner {
         _penalty.gracePeriod = newGracePeriod;
@@ -468,19 +504,21 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         _penalty.maxPerc = newMaxPenalty;
     }
     
+    // Whitelist a ERC20 to allow recoverERC20 function. Emits an event to alert users.
     function changeWhitelistRecoverERC20(address tokenAddress, bool flag) external onlyOwner {
         if (tokenAddress == _assetTokenAddress) revert Unauthorized();
         whitelistRecoverERC20[tokenAddress] = flag;
         emit ChangeWhitelistERC20(tokenAddress, flag);
     }
 
-    // Added to support recovering LP Rewards from other systems such as BAL to be distributed to holders
+    // Added to support to recover ERC20 token within a whitelist 
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external onlyOwner {
         if (whitelistRecoverERC20[tokenAddress] == false) revert NotWhitelisted();
         IERC20(tokenAddress).safeTransfer(owner, tokenAmount);
         emit Recovered(tokenAddress, tokenAmount);
     }
 
+    // Added to support to recover ERC721 
     function recoverERC721(address tokenAddress, uint256 tokenId) external onlyOwner {
         IERC721(tokenAddress).safeTransferFrom(address(this), owner, tokenId);
         emit RecoveredNFT(tokenAddress, tokenId);
@@ -488,6 +526,12 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
 
     /* ========== INTERNAL FUNCTIONS ========== */
     
+    /**
+     * Handles deposit in which
+     * new veTokens are minted.
+     * Transfer asset tokens to
+     * vault and lock it for a period.
+     */
     function _deposit(
         uint256 assets,
         address receiver,
@@ -517,7 +561,12 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         emit Deposit(msg.sender, receiver, assets, shares);
         return shares;
     }
-
+    
+    /**
+     * Handles withdraw in which veTokens are burned.
+     * Transfer asset tokens from vault to receiver.
+     * Only allows withdraw after correct unlock date.
+     */
     function _withdraw(
         uint256 assets,
         address receiver,
@@ -559,6 +608,15 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         return shares;
     }
 
+    /**
+     * Pay penalty to withdraw caller.
+     * The reward is paid from owner account
+     * with their underlying asset.
+     * Only after the grace period it's paid.
+     * It starts at the minimum penalty and
+     * after each epoch it's increased. It's
+     * capped at the max penalty.
+     */
     function _payPenalty(address owner, uint256 assets) internal returns (uint256 amountPenalty) {
         uint256 penaltyAmount = _penalty.minPerc 
                         + (((block.timestamp - (_unlockDate[owner] + _penalty.gracePeriod))

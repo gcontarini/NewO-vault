@@ -16,6 +16,10 @@ if they are veToken holders and the amount of tokens being
 provided is at least the same as the ones locked, a boost of rewards
 is granted. The boost is the same applied in the veVault.
 <br>
+This vault system was loosely inspired by the old StakingReward contract
+by [synthetix](https://github.com/Synthetixio/synthetix) and by other
+veTokens implementations like from Curve. 
+
 # Instructions to run locally
 Go to repository root
 <br>
