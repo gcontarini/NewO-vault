@@ -68,6 +68,7 @@ describe("Rewards tests", async function () {
                     },
                 },
             ],
+            
         });
 
         VeNewo = await ethers.getContractFactory("VeNewO");
@@ -132,9 +133,17 @@ describe("Rewards tests", async function () {
             .connect(treasury)
             .transfer(addr1Address, numberOfTokens);
 
-        // approve the token
+        // approve the token to addr1
         await newoToken
             .connect(addr1)
+            .approve(
+                address(veNewo),
+                ethers.constants.MaxUint256 
+            );
+        
+        // approve the token to addr2
+        await newoToken
+            .connect(addr2)
             .approve(
                 address(veNewo),
                 ethers.constants.MaxUint256 
@@ -174,7 +183,7 @@ describe("Rewards tests", async function () {
             await expect(rewards
                 .connect(treasury)
                 .notifyRewardAmount(tokensToReward)
-            ).to.be.revertedWith("Provided reward too high");
+            ).to.be.revertedWith("RewardTooHigh()");
         })
     });
     describe("Testing rewardsToken()", () => {
@@ -185,6 +194,73 @@ describe("Rewards tests", async function () {
             ).to.be.equal(address(newoToken))
         })
     });
+    describe("Testing setRewardsDuration()", () => {
+        before(initialize);
+        it("setRewardsDuration() should only be called by owner", async () => {
+            await expect(rewards
+                .connect(addr1)
+                .setRewardsDuration(days(20))
+            ).to.be.revertedWith("Only the contract owner may perform this action")
+        })
+        it("setRewardsDuration() should set the right duration", async () => {
+            await rewards
+                .connect(owner)
+                .setRewardsDuration(days(20))
+
+            expect(await rewards
+                .rewardsDuration()
+            ).to.be.equal(days(20));
+        })
+    })
+    describe("Hardcore tests", () => {
+        before(initialize)
+        it("Rewards should be distributed based on veNewo balance of address", async () => {
+            await setReward(10000, years(2));
+
+            await newoToken.connect(treasury).transfer(address(addr2), parseNewo(1000));
+
+            const { balNewo: balNewoAddr1Before } = await checkBalances(addr1);
+            const { balNewo: balNewoAddr2Before } = await checkBalances(addr2);
+            
+            await veNewo
+                .connect(addr1)
+                ["deposit(uint256,address,uint256)"](
+                balNewoAddr1Before,
+                address(addr1),
+                years(2)
+            )
+
+            await rewards.connect(addr1).notifyDeposit();
+
+            await veNewo.connect(addr2)
+                ["deposit(uint256,address,uint256)"](
+                balNewoAddr2Before,
+                address(addr2),
+                days(90)
+            )
+            
+            await rewards.connect(addr2).notifyDeposit();
+
+            const { balVeNewo: balVeNewoAddr1 } = await checkBalances(addr1);
+            const { balVeNewo: balVeNewoAddr2 } = await checkBalances(addr2);
+
+            expect(balVeNewoAddr1).to.gt(balVeNewoAddr2)
+
+            await timeTravel(years(3));
+
+            await rewards.connect(addr1).getReward();
+            await rewards.connect(addr2).getReward();
+
+            const { balNewo: balNewoAddr1After } = await checkBalances(addr1);
+            const { balNewo: balNewoAddr2After } = await checkBalances(addr2);
+
+            expect(balNewoAddr1After).to.gt(balNewoAddr2After)
+        })
+    })
+
+    describe("Hardcore test", async () => {
+        before(initialize)
+    })
 
     async function setReward(rewardAmount: number, distributionPeriod: number) {
 

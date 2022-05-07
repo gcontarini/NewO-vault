@@ -9,6 +9,8 @@ import "./interfaces/IVeVault.sol";
 import "./RewardsDistributionRecipient.sol";
 import "./Pausable.sol";
 
+import "hardhat/console.sol";
+
 error RewardTooHigh();
 error RewardPeriodNotComplete(uint256 finish);
 
@@ -66,6 +68,7 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
         if (_totalSupply == 0) {
             return rewardPerTokenStored;
         }
+        console.log(lastTimeRewardApplicable(owner), lastUpdateTime);
         return rewardPerTokenStored
                 + ((lastTimeRewardApplicable(owner) - lastUpdateTime)
                     * rewardRate
