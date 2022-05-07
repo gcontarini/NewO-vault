@@ -411,7 +411,12 @@ describe("xNewo tests", function () {
                 .deposit(lpEarned, address(addr1));
             
             const newoLpShares = await xNewo.getNewoShare(address(addr1));
-            expect(newoLpShares).to.be.equal(newoPool.toString());
+
+            // +/- 0.001% margin
+            const lowerBound = (newoPool as BigNumber).mul(99999).div(100000);
+            const upperBound = (newoPool as BigNumber).mul(100001).div(100000);
+
+            expect(newoLpShares).to.be.gte(lowerBound).and.lte(upperBound);
         });
     });
 
@@ -605,13 +610,15 @@ describe("xNewo tests", function () {
                 balXNewo: balXAfter,
             } = await checkBalances(addr1);
 
-            expect((balXAfter as BigNumber)
-                .mul("10000000000000000")
-                .div(balLpBefore)
-            ).to.be.equal((balVeAfter as BigNumber)
-                .mul("10000000000000000")
-                .div(parseNewo(newoToLock))
-            )
+            const veMult = (balXAfter as BigNumber).mul("10000000000000000").div(balLpBefore)
+            const xMult = (balVeAfter as BigNumber).mul("10000000000000000").div(parseNewo(newoToLock))
+
+            // +/- 0.001% margin
+            const lowerBound = (xMult as BigNumber).mul(99999).div(100000);
+            const upperBound = (xMult as BigNumber).mul(100001).div(100000);
+        
+            expect(veMult).to.be.gte(lowerBound).and.lte(upperBound);
+
         })
     })
 
@@ -805,16 +812,11 @@ describe("xNewo tests", function () {
 
             const {
                 lpAdded: lpAddr2,
-                newoAdded: newoToLpAddr2
             } = await addSushiLiquidity(addr2, newoToLp, USDCToLp);
                         
             const {
                 lpAdded: lpAddr1,
-                newoAdded: newoToLpAddr1
             } = await addSushiLiquidity(addr1, newoToLp, USDCToLp);
-            
-            console.log("Account 2 Newo added to Lp", newoToLpAddr2);
-            console.log("Account 1 Newo added to Lp", newoToLpAddr1);
             
             // addr1 lock newo for veNewo to earn bonus
             await veNewo
@@ -853,49 +855,14 @@ describe("xNewo tests", function () {
 
             const distributed = (newoEarnedAddr1 as BigNumber).add(newoEarnedAddr2)
 
-            expect(distributed).to.equal(parseNewo(10000));
+            // +/- 0.001% margin
+            const lowerBound = (distributed as BigNumber).mul(99999).div(100000);
+            const upperBound = (distributed as BigNumber).mul(100001).div(100000);
 
-            expect (await xNewo.rewardRate()).to.be.equal(0);
-            expect(await xNewo.rewardPerTokenStored()).to.be.equal(0);
-            
-            console.log(newoEarnedAddr1, newoEarnedAddr2);
+            expect(parseNewo(10000)).to.be.gte(lowerBound).and.lte(upperBound);
             
             expect(newoEarnedAddr1).to.gt(newoEarnedAddr2)
         });
-        // it("If both address redeem everything the balance of assets and shares should be zero", async () => {
-        //     const { balXNewo: balXAddr1Before } = await checkBalances(addr1)
-        //     const { balXNewo: balXAddr2Before } = await checkBalances(addr2);
-
-        //     await xNewo
-        //         .connect(addr1)
-        //         .redeem(balXAddr1Before, address(addr1), address(addr1));
-
-        //     await xNewo
-        //         .connect(addr2)
-        //         .redeem(balXAddr2Before, address(addr2), address(addr2));
-
-        //     const {balXNewo: balXAddr1After} = await checkBalances(addr1)
-        //     const {balXNewo: balXAddr2After} = await checkBalances(addr2)
-
-        //     expect(balXAddr1After).to.be.equal(0)
-        //     expect(balXAddr2After).to.be.equal(0)
-
-        //     expect(await xNewo
-        //         .totalAssets()
-        //     ).to.be.equal(0)
-
-        //     expect(await xNewo
-        //         .balanceOf(address(addr1))
-        //     ).to.be.equal(0)
-
-        //     expect(await xNewo
-        //         .totalSupply()
-        //     ).to.be.equal(0)
-
-        //     expect(await xNewo
-        //         .balanceOf(address(addr2))
-        //     ).to.be.equal(0)
-        // })
     })
 
     describe("Hardcore test", () => {
@@ -913,16 +880,11 @@ describe("xNewo tests", function () {
 
             const {
                 lpAdded: lpAddr2,
-                newoAdded: newoToLpAddr2
             } = await addSushiLiquidity(addr2, newoToLp, USDCToLp);
                         
             const {
                 lpAdded: lpAddr1,
-                newoAdded: newoToLpAddr1
             } = await addSushiLiquidity(addr1, newoToLp, USDCToLp);
-            
-            console.log("Account 2 Newo added to Lp", newoToLpAddr2);
-            console.log("Account 1 Newo added to Lp", newoToLpAddr1);
             
             // addr1 lock newo for veNewo to earn bonus
             await veNewo
@@ -1024,8 +986,6 @@ describe("xNewo tests", function () {
             const { balNewo: balNewoAddr1BeforeExit } = await checkBalances(addr1);
             const { balNewo: balNewoAddr2BeforeExit } = await checkBalances(addr2);
 
-            console.log("\n Checking newoBal before addr1, addr2", balNewoAddr1BeforeExit, balNewoAddr2BeforeExit);
-
             await xNewo.connect(addr1).exit();
             await xNewo.connect(addr2).exit();
             
@@ -1034,6 +994,16 @@ describe("xNewo tests", function () {
 
             const newoRewardAddr1 = (balNewoAddr1AfterExit as BigNumber).sub(balNewoAddr1BeforeExit)
             const newoRewardAddr2 = (balNewoAddr2AfterExit as BigNumber).sub(balNewoAddr2BeforeExit)
+
+            // Check if rewards were fully distributed:
+
+            const distributed = (newoRewardAddr1 as BigNumber).add(newoRewardAddr2)
+
+            // +/- 0.001% margin
+            const lowerBound = (distributed as BigNumber).mul(99999).div(100000);
+            const upperBound = (distributed as BigNumber).mul(100001).div(100000);
+
+            expect(parseNewo(10000)).to.be.gte(lowerBound).and.lte(upperBound);
 
             expect(newoRewardAddr1).to.gt(newoRewardAddr2);
             expect(balXAddr1After).to.be.equal(0)
@@ -1056,8 +1026,6 @@ describe("xNewo tests", function () {
             ).to.be.equal(0)
         });
     })
-
-
 
     async function addSushiLiquidity(signer: Signer, NewoAmount: number, USDCAmount: number){
         const { 

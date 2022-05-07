@@ -413,10 +413,10 @@ describe("veNewo tests", async function () {
                 );
 
             const { balVeNewo: actualShares } = await checkBalances(addr1);
-            const lowerBound = (expectedShares as BigNumber).mul(99).div(100);
-            const upperBound = (expectedShares as BigNumber).mul(101).div(100);
+            const lowerBound = (expectedShares as BigNumber).mul(99999).div(100000);
+            const upperBound = (expectedShares as BigNumber).mul(100001).div(100000);
 
-            // +/- 1% margin
+            // +/- 0.001% margin
             expect(actualShares).to.be.gte(lowerBound).and.lte(upperBound);
         });
         it("third parties are not allowed to redeem in favor of another account", async () => {
@@ -462,11 +462,11 @@ describe("veNewo tests", async function () {
                     lockTime 
                 );
 
-            const lowerBound = (expectedShares as BigNumber).mul(99).div(100);
-            const upperBound = (expectedShares as BigNumber).mul(101).div(100);
+            const lowerBound = (expectedShares as BigNumber).mul(99999).div(100000);
+            const upperBound = (expectedShares as BigNumber).mul(100001).div(100000);
             const { balVeNewo: actualShares } = await checkBalances(addr1);
 
-            // +/- 1% margin
+            // +/- 0.001% margin
             expect(actualShares).to.be.gte(lowerBound).and.lte(upperBound);
         });
         it("wait and exit all", async () => {

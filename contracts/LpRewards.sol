@@ -12,8 +12,6 @@ import "./interfaces/IUniswapV2Pair.sol";
 import "./interfaces/IVeVault.sol";
 import "./interfaces/IERC4626.sol";
 
-import "hardhat/console.sol";
-
 // Custom errors
 error Unauthorized();
 error UnauthorizedClaim();
@@ -332,13 +330,13 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
             updateBoost(msg.sender)
             returns (uint256 reward) {
         _withdraw(accounts[msg.sender].assets, accounts[msg.sender].shares - accounts[msg.sender].sharesBoost, msg.sender, msg.sender);
-        return getReward();
+        reward = getReward();
+        return reward;
     }
 
     /* ========== RESTRICTED FUNCTIONS ========== */
     
     function _withdraw(uint256 assets, uint256 shares, address receiver, address owner) internal {
-        console.log(assets, accounts[owner].assets, accounts[owner].shares, shares);
         if(assets <= 0 || owner != msg.sender 
             || accounts[owner].assets < assets
             || (accounts[owner].shares - accounts[owner].sharesBoost) < shares)
