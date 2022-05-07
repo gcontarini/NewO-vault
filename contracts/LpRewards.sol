@@ -337,7 +337,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     // Withdraw all to caller
     function exit() external
             nonReentrant 
-            updateReward(msg.sender) 
+            updateReward(msg.sender)
             updateBoost(msg.sender)
             returns (uint256 reward) {
         _withdraw(accounts[msg.sender].assets, accounts[msg.sender].shares - accounts[msg.sender].sharesBoost, msg.sender, msg.sender);

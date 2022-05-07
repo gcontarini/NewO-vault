@@ -866,15 +866,9 @@ describe("xNewo tests", function () {
             const { balXNewo: balXAddr1Before } = await checkBalances(addr1)
             const { balXNewo: balXAddr2Before } = await checkBalances(addr2);
 
-            const lpStakedNewoAddr1 = await xNewo.assetBalanceOf(address(addr1));
-
             await xNewo
                 .connect(addr1)
-                .withdraw(lpStakedNewoAddr1, address(addr1), address(addr1));
-            
-            // await xNewo
-            //     .connect(addr1)
-            //     .redeem(balXAddr1Before, address(addr1), address(addr1));
+                .redeem(balXAddr1Before, address(addr1), address(addr1));
 
             await xNewo
                 .connect(addr2)
@@ -903,6 +897,169 @@ describe("xNewo tests", function () {
             ).to.be.equal(0)
         })
     })
+
+    describe("Hardcore test", () => {
+        before(initialize);
+        it("If both address withdraw everything the balance of assets and shares should be zero", async () => {
+            await setReward(10000, years(2));
+
+            const newoToLp = 1000;
+            const USDCToLp = 350;
+
+            // give addr2 some newo
+            await newoToken
+                .connect(treasury)
+                .transfer(address(addr2), parseNewo(1000));
+
+            const {
+                lpAdded: lpAddr2,
+                newoAdded: newoToLpAddr2
+            } = await addSushiLiquidity(addr2, newoToLp, USDCToLp);
+                        
+            const {
+                lpAdded: lpAddr1,
+                newoAdded: newoToLpAddr1
+            } = await addSushiLiquidity(addr1, newoToLp, USDCToLp);
+            
+            console.log("Account 2 Newo added to Lp", newoToLpAddr2);
+            console.log("Account 1 Newo added to Lp", newoToLpAddr1);
+            
+            // addr1 lock newo for veNewo to earn bonus
+            await veNewo
+                .connect(addr1)
+                ["deposit(uint256,address,uint256)"]
+                (parseNewo(1000), address(addr1), years(3));            
+            
+            await xNewo
+                .connect(addr2)
+                .deposit(lpAddr2, address(addr2))
+            
+            await xNewo
+                .connect(addr1)
+                .deposit(lpAddr1, address(addr1))
+            
+            await timeTravel(years(2));
+
+            await xNewo.connect(addr2).getReward();
+            await xNewo.connect(addr1).getReward();
+
+            const lpStakedNewoAddr1 = await xNewo.assetBalanceOf(address(addr1));
+            const lpStakedNewoAddr2 = await xNewo.assetBalanceOf(address(addr2));
+
+            await xNewo
+                .connect(addr1)
+                .withdraw(lpStakedNewoAddr1, address(addr1), address(addr1));
+            
+
+            await xNewo
+                .connect(addr2)
+                .withdraw(lpStakedNewoAddr2, address(addr2), address(addr2));
+
+            const { balXNewo: balXAddr1After } = await checkBalances(addr1)
+            const { balXNewo: balXAddr2After } = await checkBalances(addr2)
+
+            expect(balXAddr1After).to.be.equal(0)
+            expect(balXAddr2After).to.be.equal(0)
+
+            expect(await xNewo
+                .totalAssets()
+            ).to.be.equal(0)
+
+            expect(await xNewo
+                .balanceOf(address(addr1))
+            ).to.be.equal(0)
+
+            expect(await xNewo
+                .totalSupply()
+            ).to.be.equal(0)
+
+            expect(await xNewo
+                .balanceOf(address(addr2))
+            ).to.be.equal(0)
+        });
+    })
+
+    describe("Hardcore test", () => {
+        before(initialize);
+        it("exit function should distribute rewards and withdraw for the caller", async () => {
+            await setReward(10000, years(2));
+
+            const newoToLp = 1000;
+            const USDCToLp = 350;
+
+            // give addr2 some newo
+            await newoToken
+                .connect(treasury)
+                .transfer(address(addr2), parseNewo(newoToLp));
+
+            const {
+                lpAdded: lpAddr2,
+                newoAdded: newoToLpAddr2
+            } = await addSushiLiquidity(addr2, newoToLp, USDCToLp);
+                        
+            const {
+                lpAdded: lpAddr1,
+                newoAdded: newoToLpAddr1
+            } = await addSushiLiquidity(addr1, newoToLp, USDCToLp);
+            
+            console.log("Account 2 Newo added to Lp", newoToLpAddr2);
+            console.log("Account 1 Newo added to Lp", newoToLpAddr1);
+            
+            // addr1 lock newo for veNewo to earn bonus
+            await veNewo
+                .connect(addr1)
+                ["deposit(uint256,address,uint256)"]
+                (parseNewo(1000), address(addr1), years(3));            
+            
+            await xNewo
+                .connect(addr2)
+                .deposit(lpAddr2, address(addr2))
+            
+            await xNewo
+                .connect(addr1)
+                .deposit(lpAddr1, address(addr1))
+            
+            await timeTravel(years(2));
+
+            const {balNewo: balNewoAddr1BeforeExit} = await checkBalances(addr1);
+            const {balNewo: balNewoAddr2BeforeExit} = await checkBalances(addr2);
+
+            console.log("\n Checking newoBal before addr1, addr2", balNewoAddr1BeforeExit, balNewoAddr2BeforeExit);
+            
+            console.log("\n\n AM I GETTING HERE??");
+
+            await xNewo.connect(addr1).exit();
+            await xNewo.connect(addr2).exit();
+            
+            const {balXNewo: balXAddr1After, balNewo: balNewoAddr1AfterExit} = await checkBalances(addr1)
+            const {balXNewo: balXAddr2After, balNewo: balNewoAddr2AfterExit} = await checkBalances(addr2)
+
+            const newoRewardAddr1 = (balNewoAddr1AfterExit as BigNumber).sub(balNewoAddr1BeforeExit)
+            const newoRewardAddr2 = (balNewoAddr2AfterExit as BigNumber).sub(balNewoAddr2BeforeExit)
+
+            expect(newoRewardAddr1).to.gt(newoRewardAddr2);
+            expect(balXAddr1After).to.be.equal(0)
+            expect(balXAddr2After).to.be.equal(0)
+
+            expect(await xNewo
+                .totalAssets()
+            ).to.be.equal(0)
+
+            expect(await xNewo
+                .balanceOf(address(addr1))
+            ).to.be.equal(0)
+
+            expect(await xNewo
+                .totalSupply()
+            ).to.be.equal(0)
+
+            expect(await xNewo
+                .balanceOf(address(addr2))
+            ).to.be.equal(0)
+        });
+    })
+
+
 
     async function addSushiLiquidity(signer: Signer, NewoAmount: number, USDCAmount: number){
         const { 
