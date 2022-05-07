@@ -212,7 +212,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         return rewardRate * rewardsDuration;
     }
 
-    function getReward() public nonReentrant updateReward(msg.sender) returns (uint256 reward) {
+    function getReward() public updateReward(msg.sender) returns (uint256 reward) {
         reward = accounts[msg.sender].rewards;
         if(reward <= 0)
             revert UnauthorizedClaim();
@@ -297,17 +297,12 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         return shares;
     }
 
-    function mint(uint256 shares, address receiver)
+    function mint(uint256, address)
             override
             external
-            nonReentrant
-            notPaused
-            updateReward(receiver)
-            updateBoost(receiver)
-            returns (uint256 assets) {
-        assets = shares;
-        _deposit(assets, shares, receiver);
-        return assets;
+            pure
+            returns (uint256) {
+        revert Unauthorized();
     }
 
     function withdraw(uint256 assets, address receiver, address owner)
@@ -322,16 +317,12 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         return shares; 
     }
 
-    function redeem(uint256 shares, address receiver, address owner)
+    function redeem(uint256, address, address)
             override
             external 
-            nonReentrant 
-            updateReward(owner)
-            updateBoost(owner)
-            returns (uint256 assets) {
-        assets = shares;
-        _withdraw(assets, shares, receiver, owner);
-        return assets;
+            pure
+            returns (uint256) {
+        revert Unauthorized();
     }
 
     // Withdraw all to caller
@@ -381,7 +372,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         IERC20(assetToken).safeTransferFrom(msg.sender, address(this), assets);
         emit Deposit(msg.sender, address(this), assets, shares);
     }
-    
+
     function _updateBoost(address owner) internal {
         uint256 oldShares = accounts[owner].shares;
         uint256 newShares = oldShares;
@@ -436,7 +427,6 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     }
 
     modifier updateBoost(address owner) {
-        _updateBoost(owner);
         _;
         _updateBoost(owner);
     }
