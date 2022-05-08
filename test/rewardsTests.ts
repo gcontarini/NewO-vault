@@ -22,8 +22,6 @@ import {
     Rewards__factory,
     Rewards,
 } from "../typechain";
-import { months } from "moment";
-import { getAddress } from "ethers/lib/utils";
 
 const newoTokenAddress = "0x98585dFc8d9e7D48F0b1aE47ce33332CF4237D96";
 const TreasuryAddress = "0xdb36b23964FAB32dCa717c99D6AEFC9FB5748f3a";
