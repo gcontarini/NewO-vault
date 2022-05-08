@@ -361,6 +361,14 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
             - (((lockTime / SEC_IN_DAY) ** 2) * K_2)
             ) / CONVERT_PRECISION;
     }
+
+    /**
+     * @notice Returns the multiplier applied for an address
+     * with 2 digits precision
+     */
+    function veMult(address owner) external view returns (uint256) {
+        return _shareBalances[owner] * PRECISION / _assetBalances[owner];
+    }
     
     /* ========== MUTATIVE FUNCTIONS ========== */
 

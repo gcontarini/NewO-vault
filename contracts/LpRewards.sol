@@ -269,6 +269,16 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     /* ============== REWARD FUNCTIONS ====================== */
 
     /**
+     * @notice Notify the reward contract about a deposit in the
+     * veVault contract. This is important to assure the
+     * contract will account user's rewards.
+     */
+    function notifyDeposit() public updateReward(msg.sender) updateBoost(msg.sender) returns(Account memory) {
+        emit NotifyDeposit(msg.sender, accounts[owner].assets, accounts[owner].shares);
+        return accounts[owner];
+    }
+
+    /**
      * @notice Pick the correct date for applying the reward
      * Apply until the end of periodFinish or now
      */
@@ -633,5 +643,6 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     event Recovered(address token, uint256 amount);
     event RecoveredNFT(address tokenAddress, uint256 tokenId);
     event ChangeWhitelistERC20(address indexed tokenAddress, bool whitelistState);
+    event NotifyDeposit(address indexed user, uint256 assetBalance, uint256 sharesBalance);
     event BoostUpdated(address indexed owner, uint256 totalShares, uint256 boostShares);
 }
