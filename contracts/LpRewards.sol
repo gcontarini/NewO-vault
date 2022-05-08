@@ -123,27 +123,27 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     }
 
     /** 
-     * @dev Compliant to the ERC4626 interface.
      * @notice Maximum amount of the underlying asset that can
      * be deposited into the Vault for the receiver, through a deposit call.
+     * @dev Compliant to the ERC4626 interface.
      */
     function maxDeposit(address) override external pure returns (uint256 maxAssets) {
         return 2 ** 256 - 1;
     }
 
     /**
-     * @dev Compliant to the ERC4626 interface.
      * @notice Maximum amount of shares that can be minted from the
      * Vault for the receiver, through a mint call.
+     * @dev Compliant to the ERC4626 interface.
      */
     function maxMint(address) override external pure returns (uint256 maxShares) {
         return 2 ** 256 - 1;
     }
 
     /**
-     * @dev Compliant to the ERC4626 interface.
      * @notice Maximum amount of the underlying asset that can be withdrawn from the
      * owner balance in the Vault, through a withdraw call.
+     * @dev Compliant to the ERC4626 interface.
      */
     function maxWithdraw(address owner) override external view returns (uint256 maxAssets) {
         if (paused) {
@@ -153,8 +153,8 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     }
 
     /**
-     * @dev Compliant to the ERC4626 interface.
      * @notice Maximum amount of Vault shares that can be redeemed from the owner balance in the Vault, through a redeem call.
+     * @dev Compliant to the ERC4626 interface.
      */
     function maxRedeem(address owner) override external view returns (uint256 maxShares) {
         if (paused) {
@@ -165,56 +165,56 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     }
 
     /** 
-     * @dev Compliant to the ERC4626 interface.
      * @notice The amount of shares that the Vault would exchange 
      * for the amount of assets provided, in an ideal scenario where
      * all the conditions are met.
+     * @dev Compliant to the ERC4626 interface.
      */
     function convertToShares(uint256 assets) override external view returns (uint256 shares) {
         return assets * getMultiplier(msg.sender) / PRECISION;
     }
 
     /**
-     * @dev Compliant to the ERC4626 interface.
      * @notice The amount of assets that the Vault would exchange
      * for the amount of shares provided, in an ideal scenario where
      * all the conditions are met.
+     * @dev Compliant to the ERC4626 interface.
      */
     function convertToAssets(uint256 shares) override external view returns (uint256 assets) {
         return shares * PRECISION / getMultiplier(msg.sender);
     }
 
     /** 
-     * @dev Compliant to the ERC4626 interface.
      * @notice Allows an on-chain or off-chain user to simulate the
      * effects of their deposit at the current block, given current on-chain conditions.
+     * @dev Compliant to the ERC4626 interface.
      */
     function previewDeposit(uint256 assets) override external view returns (uint256 shares) {
         return assets * getMultiplier(msg.sender) / PRECISION;
     }
 
     /**
-     * @dev Compliant to the ERC4626 interface.
      * @notice Allows an on-chain or off-chain user to simulate the
      * effects of their mint at the current block, given current on-chain conditions.
+     * @dev Compliant to the ERC4626 interface.
      */
     function previewMint(uint256 shares) override external view returns (uint256 assets) {
          return shares * PRECISION / getMultiplier(msg.sender);
     }
 
     /**
-     * @dev Compliant to the ERC4626 interface.
      * @notice Allows an on-chain or off-chain user to simulate the effects of their
      * withdrawal at the current block, given current on-chain conditions.
+     * @dev Compliant to the ERC4626 interface.
      */
     function previewWithdraw(uint256 assets) override external view returns (uint256 shares) {
         return assets * getMultiplier(msg.sender) / PRECISION;
     }
 
     /**
-     * @dev Compliant to the ERC4626 interface.
      * @notice Allows an on-chain or off-chain user to simulate the effects of their
      * redeemption at the current block, given current on-chain conditions.
+     * @dev Compliant to the ERC4626 interface.
      */
     function previewRedeem(uint256 shares) override external view returns (uint256 assets) {
         return shares * PRECISION / getMultiplier(msg.sender);
@@ -272,6 +272,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
      * @notice Notify the reward contract about a deposit in the
      * veVault contract. This is important to assure the
      * contract will account user's rewards.
+     * @return account with full information
      */
     function notifyDeposit() public updateReward(msg.sender) updateBoost(msg.sender) returns(Account memory) {
         emit NotifyDeposit(msg.sender, accounts[owner].assets, accounts[owner].shares);
@@ -281,6 +282,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     /**
      * @notice Pick the correct date for applying the reward
      * Apply until the end of periodFinish or now
+     * @return date which rewards are applicable
      */
     function lastTimeRewardApplicable() public view returns (uint256) {
         return block.timestamp < periodFinish ? block.timestamp : periodFinish;
@@ -289,6 +291,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     /**
      * @notice Calculate how much reward must be given for an user
      * per token staked. 
+     * @return amount of reward per token updated
      */
     function rewardPerToken() public view returns (uint256) {
         if (total.supply == 0) {
@@ -306,6 +309,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     /**
      * @notice Calculates how much rewards a staker earned 
      * until this moment.
+     * @return amount of rewards earned so far
      */
     function earned(address owner) public view returns (uint256) {
         return accounts[owner].rewards
@@ -416,10 +420,11 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     /* ========== MUTATIVE FUNCTIONS ========== */
     
     /**
-     * @dev Compliant to the ERC4626 interface.
      * @notice Mints shares to receiver by depositing exactly amount of underlying tokens.
+     * @dev Compliant to the ERC4626 interface.
      * @param assets: amount of underlying tokens
      * @param receiver: address which the veTokens will be granted to
+     * @return shares minted for receiver
      */
     function deposit(uint256 assets, address receiver)
             override
@@ -450,14 +455,15 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     }
 
     /**
-     * @dev Compliant to the ERC4626 interface
      * @notice Burns shares from owner and sends exactly
      * assets of underlying tokens to receiver.
      * Allows owner to send their assets to another
      * address.
+     * @dev Compliant to the ERC4626 interface
      * @param assets: amount of underlying tokens
      * @param receiver: address which tokens will be transfered to
      * @param owner: address which controls the veTokens 
+     * @return shares burned from owner
      */
     function withdraw(uint256 assets, address receiver, address owner)
             override
@@ -489,6 +495,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     /**
      * @notice Perform a full withdraw
      * for caller and get all remaining rewards
+     * @return reward claimed by the caller
      */
     function exit() external
             nonReentrant 
@@ -556,12 +563,12 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     }
 
     /**
+     * @notice Owner can whitelist an ERC20 to recover it afterwards.
+     * Emits and event to notify all users about it 
      * @dev It's possible to owner whitelist the underlying token
      * and do some kind of rugpull. To prevent that, it'recommended
      * that owner is a multisig address. Also, it emits an event
      * of changes in the ERC20 whitelist as a safety check.
-     * @notice Owner can whitelist an ERC20 to recover it afterwards.
-     * Emits and event to notify all users about it 
      * @param flag: true to allow recover for the token
      */
     function changeWhitelistRecoverERC20(address tokenAddress, bool flag) external onlyOwner {

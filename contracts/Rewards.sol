@@ -61,6 +61,9 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
 
     /* ========== VIEWS ========== */
 
+    /**
+     * @notice Get the vault address
+     */
     function getVaultAddress() public view returns (address) {
         return vault;
     }
@@ -69,6 +72,7 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
      * @notice Pick the correct date for applying the reward
      * Apply until the end of periodFinish or until
      * unlockDate for funds in the veVault
+     * @return date which the reward is applicable for and address
      */
     function lastTimeRewardApplicable(address owner) public view returns (uint256) {
         if (owner != address(0) && accounts[owner].dueDate < periodFinish) {
@@ -83,6 +87,7 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
      * @dev If dueDate is less than the period finish,
      * a "negative" reward is applied to ensure that
      * rewards are applied only until this date.
+     * @return amount of reward per token an addres is elegible to receive so far
      */
     function rewardPerToken(address owner) public view returns (uint256) {
         uint256 _totalSupply = IVeVault(vault).totalSupply();
@@ -114,6 +119,7 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
      * @notice Calculates how much rewards a staker earned 
      * until this moment.
      * @dev Only apply reward until period finish or unlock date.
+     * @return amount of reward available to claim 
      */
     function earned(address owner) public view returns (uint256) {
         uint256 currentReward = rewardPerToken(owner);
@@ -141,6 +147,7 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
      * @notice Notify the reward contract about a deposit in the
      * veVault contract. This is important to assure the
      * contract will account user's rewards.
+     * @return account full information
      */
     function notifyDeposit() public updateReward(msg.sender) returns(Account memory) {
         emit NotifyDeposit(msg.sender, accounts[owner].rewardPerTokenPaid, accounts[owner].dueDate);
