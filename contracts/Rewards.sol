@@ -9,8 +9,6 @@ import "./interfaces/IVeVault.sol";
 import "./RewardsDistributionRecipient.sol";
 import "./Pausable.sol";
 
-import "hardhat/console.sol";
-
 error RewardTooHigh();
 error RewardPeriodNotComplete(uint256 finish);
 
@@ -94,9 +92,9 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
         uint256 paidReward = accounts[owner].rewardPerTokenPaid;
 
         uint256 moreReward = 0;
-        if (currentReward >= paidReward) {
+        if (currentReward > paidReward) {
             moreReward = IVeVault(vault).balanceOf(owner)
-                            * (currentReward - paidReward) 
+                            * (currentReward - paidReward)
                             / 1e18;
         }
         return accounts[owner].rewards + moreReward;
@@ -114,10 +112,15 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
     }
 
     function getReward() public nonReentrant updateReward(msg.sender) {
-        uint256 reward = accounts[msg.sender].rewards - 1e18;
+        uint256 reward = accounts[msg.sender].rewards;
         if (reward > 0) {
+            IERC20 rToken = IERC20(rewardsToken);
+            uint256 balance = rToken.balanceOf(address(this));
+            if (reward > balance) 
+                reward = balance;
+
             accounts[msg.sender].rewards = 0;
-            IERC20(rewardsToken).safeTransfer(msg.sender, reward);
+            rToken.safeTransfer(msg.sender, reward);
             emit RewardPaid(msg.sender, reward);
         }
     }
