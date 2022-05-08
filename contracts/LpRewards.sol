@@ -15,6 +15,7 @@ import "./interfaces/IERC4626.sol";
 // Custom errors
 error Unauthorized();
 error UnauthorizedClaim();
+error NotImplemented();
 error RewardTooHigh(uint256 allowed, uint256 reward);
 error NotWhitelisted();
 error InsufficientBalance();
@@ -301,7 +302,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
             external
             pure
             returns (uint256) {
-        revert Unauthorized();
+        revert NotImplemented();
     }
 
     function withdraw(uint256 assets, address receiver, address owner)
@@ -321,7 +322,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
             external 
             pure
             returns (uint256) {
-        revert Unauthorized();
+        revert NotImplemented();
     }
 
     // Withdraw all to caller

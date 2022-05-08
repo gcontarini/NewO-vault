@@ -316,7 +316,7 @@ describe("veNewo tests", async function () {
         });
     });
 
-    /* numerical return of ve multipler */
+    /* numerical return of ve multiplier */
     describe("Test veMult numerical value", async () => {        
        before(initialize);
         it("convertToShares 3 months return multiplier equal 1", async () => {
