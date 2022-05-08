@@ -372,29 +372,6 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         emit Deposit(msg.sender, address(this), assets, shares);
     }
 
-    function _updateBoost(address owner) internal {
-        uint256 oldShares = accounts[owner].shares;
-        uint256 newShares = oldShares;
-        if (getNewoShare(owner) <= getNewoLocked(owner)){
-            newShares = accounts[owner].assets * getMultiplier(owner) / PRECISION;
-        }
-        if (newShares > oldShares) {
-            // Mint boost shares
-            uint256 diff = newShares - oldShares;
-            total.supply += diff;
-            accounts[owner].sharesBoost = diff;
-            accounts[owner].shares = newShares;
-            emit BoostUpdated(owner, accounts[owner].shares, accounts[owner].sharesBoost);
-        } else if (newShares < oldShares) {
-            // Burn boost shares
-            uint256 diff = oldShares - newShares;
-            total.supply -= diff;
-            accounts[owner].sharesBoost = diff;
-            accounts[owner].shares = newShares;
-            emit BoostUpdated(owner, accounts[owner].shares, accounts[owner].sharesBoost);
-        }
-    }
-
     function changeWhitelistRecoverERC20(address tokenAddress, bool flag) external onlyOwner {
         whitelistRecoverERC20[tokenAddress] = flag;
         emit ChangeWhitelistERC20(tokenAddress, flag);
@@ -430,7 +407,26 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
 
     modifier updateBoost(address owner) {
         _;
-        _updateBoost(owner);
+        uint256 oldShares = accounts[owner].shares;
+        uint256 newShares = oldShares;
+        if (getNewoShare(owner) <= getNewoLocked(owner)){
+            newShares = accounts[owner].assets * getMultiplier(owner) / PRECISION;
+        }
+        if (newShares > oldShares) {
+            // Mint boost shares
+            uint256 diff = newShares - oldShares;
+            total.supply += diff;
+            accounts[owner].sharesBoost = diff;
+            accounts[owner].shares = newShares;
+            emit BoostUpdated(owner, accounts[owner].shares, accounts[owner].sharesBoost);
+        } else if (newShares < oldShares) {
+            // Burn boost shares
+            uint256 diff = oldShares - newShares;
+            total.supply -= diff;
+            accounts[owner].sharesBoost = diff;
+            accounts[owner].shares = newShares;
+            emit BoostUpdated(owner, accounts[owner].shares, accounts[owner].sharesBoost);
+        }
     }
 
     /* ========== EVENTS ========== */
