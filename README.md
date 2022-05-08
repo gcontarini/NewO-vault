@@ -1,10 +1,14 @@
-# NewO voting escrow vault system
-The following contracts implements a veToken for the NewOrder DAO (NWO).
-They were created to replace the old staking rewards contract, currently
-being used by the DAO to distribute rewards to their token holders.
+# New Order voting escrow (ve) vault system
+The following contracts implement a ve-Token for the NewOrder DAO (NWO).
+They were created to replace the old staking rewards contracts, currently
+being used by the DAO to distribute rewards to their token holders in
+favor of a system that rewards conviction.
 <br><br>
-The main goal is to create a veToken which works as a hub for
-the reward distribution tokens system. This contract (veVault)
+
+![veNEWO System](./img/veNEWO_system_diagram.001.png "veNEWO system")
+
+The main goal is to create a ve token which works with other
+reward distribution token contracts. This contract (veVault)
 allows users to lock their ERC20 for a period of time. They receive
 veTokens for doing so, which are not transferable.
 <br><br>
@@ -18,7 +22,30 @@ is granted. The boost is the same applied in the veVault.
 <br><br>
 This vault system was loosely inspired by the old StakingReward contract
 by [synthetix](https://github.com/Synthetixio/synthetix) and by other
-veTokens implementations like from Curve. 
+veTokens implementations like from Curve.
+
+# Rewards Boost
+
+veNEWO offers a bonus depending on how long an individual has conviction
+to lock their tokens for.
+
+The minimum time to lock is 3 months to earn a 1.0x multiplier.
+
+The maximum bonus is 3.3x when tokens are locked for 3 years.
+
+![veNEWO Bonus](./img/veNEWO.png "veNEWO Rewards")
+
+
+
+# Comparison to other ve token systems
+
+Rather than have ve rewards decay over time like some other ve reward models,
+causing participants to have to re-lock occasionally in order to maintain 
+rewards (and burn transaction fees, accordingly) we instead elect to encourage 
+longer locking periods with super-linear veNEWO rewards (see figure).
+
+# Dependencies
+requires Hardhat to be installed; instructions below.
 
 # Instructions to run
 First install npm dependecies
