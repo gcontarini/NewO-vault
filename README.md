@@ -26,7 +26,7 @@ First install npm dependecies
 
 Create a .env file
 ```shell
-echo ETH_MAINFORK=<INSERT URL PROVIDER WITH YOUR KEYS> >> .env
+echo "ETH_MAINFORK=<INSERT URL PROVIDER WITH YOUR KEYS>" >> .env
 ```
 
 Install npm dependecies
