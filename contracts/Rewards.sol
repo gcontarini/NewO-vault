@@ -128,6 +128,9 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
         return accounts[owner].rewards + moreReward;
     }
 
+    /**
+     * @notice Total rewards that will be paid during the distribution
+     */
     function getRewardForDuration() external view returns (uint256) {
         return rewardRate * rewardsDuration;
     }
@@ -189,6 +192,17 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
         periodFinish = block.timestamp + rewardsDuration;
         emit RewardAdded(reward);
     }
+    
+    /**
+     * @notice Allow owner to change reward duration
+     * Only allow the change if period finish has already ended
+     */
+    function setRewardsDuration(uint256 _rewardsDuration) external onlyOwner {
+        if (block.timestamp <= periodFinish) revert RewardPeriodNotComplete(periodFinish);
+
+        rewardsDuration = _rewardsDuration;
+        emit RewardsDurationUpdated(rewardsDuration);
+    }
 
     /**
      * @notice Added to support to recover ERC20 token within a whitelist 
@@ -228,17 +242,6 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
         emit RecoveredNFT(tokenAddress, tokenId);
     }
 
-    /**
-     * @notice Allow owner to change reward duration
-     * Only allow the change if period finish has already ended
-     */
-    function setRewardsDuration(uint256 _rewardsDuration) external onlyOwner {
-        if (block.timestamp <= periodFinish) revert RewardPeriodNotComplete(periodFinish);
-
-        rewardsDuration = _rewardsDuration;
-        emit RewardsDurationUpdated(rewardsDuration);
-    }
-    
     /* ========== MODIFIERS ========== */
 
     /**
