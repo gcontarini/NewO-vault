@@ -700,7 +700,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * capped at the max penalty.
      * @param owner: address which controls the veTokens
      * @param assets: amount of assets from owner being withdraw
-     * @return amountPenalty: amount of assets paid to caller
+     * @return amountPenalty amount of assets paid to caller
      */
     function _payPenalty(address owner, uint256 assets) internal returns (uint256 amountPenalty) {
         uint256 penaltyAmount = _penalty.minPerc 
