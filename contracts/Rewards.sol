@@ -68,9 +68,6 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
         if (_totalSupply == 0) {
             return rewardPerTokenStored;
         }
-<<<<<<< HEAD
-        console.log(lastTimeRewardApplicable(owner), lastUpdateTime);
-=======
         uint256 userLastTime = lastTimeRewardApplicable(owner);
         
         // Apply a negative reward per token when
@@ -83,7 +80,6 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
                     / _totalSupply
                 );
         }
->>>>>>> 7752cf4d17a4e6058daa182f5b170d9fec9ad4ad
         return rewardPerTokenStored
                 + ((userLastTime - lastUpdateTime)
                     * rewardRate
@@ -118,7 +114,7 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
     }
 
     function getReward() public nonReentrant updateReward(msg.sender) {
-        uint256 reward = accounts[msg.sender].rewards;
+        uint256 reward = accounts[msg.sender].rewards - 1e18;
         if (reward > 0) {
             accounts[msg.sender].rewards = 0;
             IERC20(rewardsToken).safeTransfer(msg.sender, reward);

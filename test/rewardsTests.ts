@@ -222,6 +222,8 @@ describe("Rewards tests", async function () {
             const { balNewo: balNewoAddr1Before } = await checkBalances(addr1);
             const { balNewo: balNewoAddr2Before } = await checkBalances(addr2);
             
+            expect(balNewoAddr1Before).to.be.equal(balNewoAddr2Before);
+
             await veNewo
                 .connect(addr1)
                 ["deposit(uint256,address,uint256)"](
@@ -258,8 +260,67 @@ describe("Rewards tests", async function () {
         })
     })
 
-    describe("Hardcore test", async () => {
+    describe("Hardcore test",() => {
         before(initialize)
+        it("Rewards should be distributed based on veNewo with right multipler", async () => {
+            await setReward(100000, days(90));
+
+            await newoToken.connect(treasury).transfer(address(addr2), parseNewo(1000));
+
+            const { balNewo: balNewoAddr1Before } = await checkBalances(addr1);
+            const { balNewo: balNewoAddr2Before } = await checkBalances(addr2);
+
+            expect(balNewoAddr1Before).to.be.equal(balNewoAddr2Before);
+            
+            await veNewo
+                .connect(addr1)
+                ["deposit(uint256,address,uint256)"](
+                balNewoAddr1Before,
+                address(addr1),
+                years(2)
+            )
+
+            await rewards.connect(addr1).notifyDeposit();
+
+            await veNewo.connect(addr2)
+                ["deposit(uint256,address,uint256)"](
+                balNewoAddr2Before,
+                address(addr2),
+                days(90)
+            )
+            
+            await rewards.connect(addr2).notifyDeposit();
+
+            const { balVeNewo: balVeNewoAddr1 } = await checkBalances(addr1);
+            const { balVeNewo: balVeNewoAddr2 } = await checkBalances(addr2);
+
+            expect(balVeNewoAddr1).to.gt(balVeNewoAddr2)
+
+            await timeTravel(days(90));
+            
+            await rewards.connect(addr1).getReward();
+            await rewards.connect(addr2).getReward();
+
+            const { balNewo: balNewoAddr1After } = await checkBalances(addr1);
+            const { balNewo: balNewoAddr2After } = await checkBalances(addr2);
+
+            const bonus = (balNewoAddr1After as BigNumber).mul("10000000000000000").div(balNewoAddr2After);
+            const addr1Mult = (balVeNewoAddr1 as BigNumber).mul("10000000000000000").div(balNewoAddr1Before)
+
+            console.log("\nmultiplier of addr1", addr1Mult);
+
+            const newoTokensInContract = await newoToken.balanceOf(address(rewards));
+            console.log("\n\n still in contract", formatNewo(newoTokensInContract));
+            
+            expect(bonus).to.be.equal(addr1Mult);
+
+            console.log("addr1 bonus compared to addr2", bonus);
+            
+            expect(balNewoAddr1After).to.gt(balNewoAddr2After);
+
+            expect(newoTokensInContract).to.be.equal(0);
+
+        })
     })
 
     async function setReward(rewardAmount: number, distributionPeriod: number) {
