@@ -95,17 +95,17 @@ Compile the contracts
 ```shell
 npx hardhat compile
 ```
-<br>
+
 Run a hardhat node
 ```shell
 npx hardhat node
 ```
-<br>
+
 Deploy the contracts
 ```shell
 npx hardhat run --network localhost scripts/deploy.ts
 ```
-<br>
+
 
 # Deploy to eth-mainnet
 Set .env file
@@ -113,14 +113,14 @@ Set .env file
 echo "ETHEREUM_URL=<CHANGE TO YOUR PROVIDER WITH KEY>" >> .env
 echo "PRIVATE_KEY=<CHANGE TO DEPLOYER PRIVATE KEY>" >> .env
 ```
-<br>
+
 Change the settings in scripts/ethDeploy.ts
-<br>
+
 Install npm dependecies
 ```shell
 npm install
 ```
-<br>
+
 ## Run the script
 ```shell
 npx hardhat run --network ethereum scripts/ethDeploy.ts
