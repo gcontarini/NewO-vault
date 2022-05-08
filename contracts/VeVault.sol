@@ -374,7 +374,8 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
 
     /**
      * @dev Compliant to the ERC4626 interface.
-     * @notice Mints shares Vault shares to receiver by depositing exactly amount of underlying tokens.
+     * @notice Mints shares Vault shares to receiver by depositing exactly 
+     * amount of underlying tokens.
      * Only allow deposits for caller equals receiver.
      * When a relock is performed, the furtherest date
      * in the future is the one selected.
