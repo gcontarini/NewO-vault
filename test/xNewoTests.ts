@@ -26,8 +26,10 @@ import {
     formatToken,
 } from "./utils";
 
-/* Since we are forking mainNet, 
-we need the addresses that we are going to interact with */
+/** 
+ * Since we are forking mainNet, 
+ * we need the addresses that we are going to interact with 
+ */
 
 const lPAddress = "0xc08ED9a9ABEAbcC53875787573DC32Eee5E43513";
 const newoTokenAddress = "0x98585dFc8d9e7D48F0b1aE47ce33332CF4237D96";
@@ -283,7 +285,7 @@ describe("xNewo tests", function () {
 
             expect(tokenAddr).to.equal(address(lp));
         });
-        it("totalAssets should be equal to zero", async () => {
+        it("totalAssets should be zero", async () => {
             const total = await xNewo.totalAssets();
 
             expect(total).to.equal(0);
@@ -1106,7 +1108,6 @@ describe("xNewo tests", function () {
         await xNewo
             .connect(treasury)
             .notifyRewardAmount(tokensToReward);
-
     }
 
     /**

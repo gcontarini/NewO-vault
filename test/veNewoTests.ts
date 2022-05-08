@@ -24,6 +24,11 @@ import {
     Rewards,
 } from "../typechain";
 
+/** 
+ * Since we are forking mainNet, 
+ * we need the addresses that we are going to interact with 
+ */
+
 const newoTokenAddress = "0x98585dFc8d9e7D48F0b1aE47ce33332CF4237D96";
 const TreasuryAddress = "0xdb36b23964FAB32dCa717c99D6AEFC9FB5748f3a";
 const USDCAddress = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
@@ -77,10 +82,12 @@ describe("veNewo tests", async function () {
             ],
         });
 
+        // Get contract's factory
         VeNewo = await ethers.getContractFactory("VeNewO");
         Rewards = await ethers.getContractFactory("Rewards");
         XNewo = await ethers.getContractFactory("XNewO");
 
+        // Get contracts factory for already deployed contracts
         newoToken = await ethers.getContractAt(newOrderABI, newoTokenAddress);
         balanceNewo = balance(newoToken);
         parseNewo = await parseToken(newoToken);
@@ -91,11 +98,13 @@ describe("veNewo tests", async function () {
         parseUSDC = await parseToken(USDC);
         formatUSDC = await formatToken(USDC);
 
+        // Create signers
         const signers = await ethers.getSigners();
         owner = signers[0];
         addr1 = signers[1];
         addr2 = signers[2];
 
+        // Impersonate Treasury
         await hre.network.provider.request({
             method: "hardhat_impersonateAccount",
             params: [TreasuryAddress],
@@ -107,8 +116,14 @@ describe("veNewo tests", async function () {
             "0xfffffffffffffffffffffffffffffffffffffffffffff"
         ]);
 
+        // Get treasury signature
         treasury = await ethers.getSigner(TreasuryAddress);
 
+        /** 
+        *   Impersonate Whale Account 
+        *   (this address will be used to give USDC to other addresses 
+        *   so they can add liquidity on sushiSwap NEWO:USDC pool)
+        */
         await hre.network.provider.request({
             method: "hardhat_impersonateAccount",
             params: [WhaleAddress],
@@ -119,12 +134,15 @@ describe("veNewo tests", async function () {
             "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
         ]);
 
+        // Get whale signature
         whale = await ethers.getSigner(WhaleAddress)
 
+        // Get Addresses
         ownerAddress = await owner.getAddress();
         addr1Address = await addr1.getAddress();
         treasuryAddress = await treasury.getAddress();
 
+        // veNewo deployement
         veNewo = await VeNewo.deploy(
             ownerAddress,       // address owner_,
             newoTokenAddress,   // address stakingToken_,
@@ -142,6 +160,7 @@ describe("veNewo tests", async function () {
         parseVeNewo = await parseToken(veNewo);
         formatVeNewo = await formatToken(veNewo);
 
+        // rewards deployement
         rewards = await Rewards.deploy(
             ownerAddress,
             veNewo.address,
@@ -164,99 +183,100 @@ describe("veNewo tests", async function () {
                 ethers.constants.MaxUint256);
     };
 
+    // Tests for view functions
     describe("Test view functions for simplest case.", async () => {        
         before(initialize);
-        it("asset equal to token address", async () => {
+        it("asset should be Newo token", async () => {
             const tokenAddr = await veNewo.asset();
 
             expect(tokenAddr).to.equal(newoTokenAddress);
         });
-        it("totalAssets equal to zero", async () => {
+        it("totalAssets should be zero", async () => {
             const total = await veNewo.totalAssets();
 
             expect(total).to.equal(0);
         });
-        it("totalSupply equal to zero", async () => {
+        it("totalSupply should be zero", async () => {
             const total = await veNewo.totalSupply();
 
             expect(total).to.equal(0);
         });
-        it("balanceOf equal to zero", async () => {
+        it("balanceOf should be zero", async () => {
             const total = await veNewo.balanceOf(await addr1.getAddress());
 
             expect(total).to.equal(0);
         });
-        it("convertToShares equal to zero", async () => {
+        it("convertToShares should return zero", async () => {
             const total = await veNewo["convertToShares(uint256)"](0);
 
             expect(total).to.equal(0);
         });
-        it("convertToShares with time equal to zero", async () => {
+        it("convertToShares with time equal to zero should return zero", async () => {
             const total = await veNewo["convertToShares(uint256,uint256)"](0, 0);
 
             expect(total).to.equal(0);
         });
-        it("convertToAssets equal to zero", async () => {
+        it("convertToAssets should return zero", async () => {
             const total = await veNewo["convertToAssets(uint256)"](0);
 
             expect(total).to.equal(0);
         });
-        it("convertToAssets with time equal to zero", async () => {
+        it("convertToAssets with time equal to zero should return zero", async () => {
             const total = await veNewo["convertToAssets(uint256,uint256)"](0, 0);
 
             expect(total).to.equal(0);
         });
-        it("maxDeposit returns max uint256", async () => {
+        it("maxDeposit should returns max uint256", async () => {
             const total = await veNewo.maxDeposit(await addr1.getAddress());
             
             expect(total).to.equal(ethers.constants.MaxUint256);
         });
-        it("previewDeposit with zero assets", async () => {
+        it("previewDeposit with zero assets should return 0", async () => {
             const total = await veNewo["previewDeposit(uint256)"](0);
             
             expect(total).to.equal(0);
         });
-        it("previewDeposit with zero assets and zero time", async () => {
+        it("previewDeposit with zero assets and zero time should return 0", async () => {
             const total = await veNewo["previewDeposit(uint256,uint256)"](0, 0);
             
             expect(total).to.equal(0);
         });
-        it("maxMint returns max uint256", async () => {
+        it("maxMint should return max uint256", async () => {
             const total = await veNewo.maxMint(await addr1.getAddress());
             
             expect(total).to.equal(ethers.constants.MaxUint256);
         });
-        it("previewMint with zero shares", async () => {
+        it("previewMint with zero shares should return 0", async () => {
             const total = await veNewo["previewMint(uint256)"](0);
             
             expect(total).to.equal(0);
         });
-        it("previewMint with zero shares and zero time", async () => {
+        it("previewMint with zero shares and zero time should return 0", async () => {
             const total = await veNewo["previewMint(uint256,uint256)"](0, 0);
             
             expect(total).to.equal(0);
         });
-        it("maxWithdraw with zero balance", async () => {
+        it("maxWithdraw with zero balance should return 0", async () => {
             const total = await veNewo.maxWithdraw(await addr1.getAddress());
             
             expect(total).to.equal(0);
         });
-        it("maxRedeem with zero balance", async () => {
+        it("maxRedeem with zero balance should return 0", async () => {
             const total = await veNewo.maxRedeem(await addr1.getAddress());
             
             expect(total).to.equal(0);
         });
-        it("previewRedeem with zero shares", async () => {
+        it("previewRedeem with zero shares should return 0", async () => {
             const total = await veNewo["previewRedeem(uint256)"](0);
             
             expect(total).to.equal(0);
         });
-        it("previewRedeem with zero shares and zero time", async () => {
+        it("previewRedeem with zero shares and zero time should return 0", async () => {
             const total = await veNewo["previewRedeem(uint256,uint256)"](0, 0);
             
             expect(total).to.equal(0);
         });
-        it("assetBalanceOf with zero assets", async () => {
+        it("assetBalanceOf with zero assets should return 0", async () => {
             const total = await veNewo.assetBalanceOf(await addr1.getAddress());
             
             expect(total).to.equal(0);
@@ -266,47 +286,47 @@ describe("veNewo tests", async function () {
             
             expect(total).to.equal(0);
         });
-        it("unlockDate with zero assets", async () => {
+        it("unlockDate with zero assets should return 0", async () => {
             const total = await veNewo.unlockDate(await addr1.getAddress());
             
             expect(total).to.equal(0);
         });
-        it("gracePeriod setted in deployment", async () => {
+        it("gracePeriod should correspond to the one setted on deployment", async () => {
             const total = await veNewo.gracePeriod();
             
             expect(total).to.equal(days(7));
         });
-        it("penaltyPercentage setted in deployment", async () => {
+        it("penaltyPercentage should correspond to the one setted on deployment", async () => {
             const total = await veNewo.penaltyPercentage();
             
             expect(total).to.equal(2);
         });
-        it("minLock setted in deployment", async () => {
+        it("minLock should correspond to the one setted on deployment", async () => {
             const total = await veNewo.minLockTime();
             
             expect(total).to.equal(days(90));
         });
-        it("maxLock setted in deployment", async () => {
+        it("maxLock should correspond to the one setted on deployment", async () => {
             const total = await veNewo.maxLockTime();
             
             expect(total).to.equal(years(3));
         });
     })
     
-    /* Not allowed ERC20 transfers */
-    describe("Test ERC20 transfer functions", async () => {        
+    /* Testing ERC20 transfer lock */
+    describe("Testing if veNewO is not transferable", async () => {        
        before(initialize);
-        it("revert for transfer", async () => {
+        it("Transfer function should revert", async () => {
             await expect(
                 veNewo.transfer(await addr1.getAddress(), 1000)
                 ).to.be.reverted;
         });
-        it("revert for approve", async () => {
+        it("Approve function should revert", async () => {
             await expect(
                 veNewo.approve(await addr1.getAddress(), 1000)
                 ).to.be.reverted;
         });
-        it("revert for transferFrom", async () => {
+        it("transferFrom function should revert", async () => {
             await expect(
                 veNewo.transferFrom(await addr1.getAddress(), await addr2.getAddress(), 1000)
                 ).to.be.reverted;
@@ -371,7 +391,7 @@ describe("veNewo tests", async function () {
     /* impossible cases */
     describe("Deposit it for invalid days", () => {
         before(initialize);
-        it("the depositor can't lock it for 0 days", async () => {
+        it("Deposit for 0 days should revert", async () => {
             await expect(
                 veNewo
                     .connect(addr1)
@@ -382,7 +402,7 @@ describe("veNewo tests", async function () {
                     )
             ).to.be.revertedWith("Unauthorized()");
         });
-        it("the depositor can't lock it for 30 days", async () => {
+        it("Deposit for 30 days should revert", async () => {
             await expect(
                 veNewo
                     .connect(addr1)
@@ -393,7 +413,7 @@ describe("veNewo tests", async function () {
                     )
             ).to.be.revertedWith("Unauthorized()");
         });
-        it("the depositor can't lock it for 4 years", async () => {
+        it("Deposit for 4 years should revert", async () => {
             await expect(
                 veNewo
                     .connect(addr1)
@@ -406,9 +426,9 @@ describe("veNewo tests", async function () {
         });
     });
     
-    describe("Deposit 0 for valid time", () => {
+    describe("Deposit 0 newo for valid time", () => {
         before(initialize);
-        it("the depositor can't lock 0", async () => {
+        it("Deposit of 0 Newo should revert", async () => {
             await expect(
                 veNewo
                     .connect(addr1)
@@ -421,16 +441,16 @@ describe("veNewo tests", async function () {
         });
     });
 
-    describe("Deposit/withdraw using mint/redeem interface", () => {
+    describe("Testing mint and redeem functions", () => {
         before(initialize);
-        it("depositor must have the amount of shares asked", async () => {
+        it("Depositor must have the amount of shares inside the bounderies", async () => {
             const lockTime = years(3);
             const expectedShares = parseNewo(673);
 
             await veNewo
                 .connect(addr1)
                 ["mint(uint256,address,uint256)"](
-                    expectedShares, 
+                    expectedShares,
                     address(addr1),
                     lockTime 
                 );
@@ -439,10 +459,10 @@ describe("veNewo tests", async function () {
             const lowerBound = (expectedShares as BigNumber).mul(99999).div(100000);
             const upperBound = (expectedShares as BigNumber).mul(100001).div(100000);
 
-            // +/- 0.001% margin
+            // we are accepting +/- 0.001% rouding errors
             expect(actualShares).to.be.gte(lowerBound).and.lte(upperBound);
         });
-        it("third parties are not allowed to redeem in favor of another account", async () => {
+        it("Redeeming in favor of another account should revert", async () => {
             const lockTime = years(3);
             await timeTravel(lockTime + days(30));
             const amount = parseNewo(600);
@@ -455,7 +475,7 @@ describe("veNewo tests", async function () {
                         address(addr1) 
                 )).to.be.revertedWith("Unauthorized()");
         });
-        it("redeem in favor of itself", async () => {
+        it("Redeeming in favor of itself should transfer the right amount", async () => {
             const lockTime = years(3);
             const amount = parseNewo(600);
             const { balVeNewo: expectedShares } = await checkBalances(addr1);
@@ -471,7 +491,7 @@ describe("veNewo tests", async function () {
 
             expect(actualShares).to.be.equal((expectedShares as BigNumber).sub(amount));
         });
-        it("mint more to itself", async () => {
+        it("Mint functions should mint the right amount of shares", async () => {
             const lockTime = years(3);
             const moreShares = parseNewo(600);
             const { balVeNewo: beforeShares } = await checkBalances(addr1);
@@ -489,10 +509,10 @@ describe("veNewo tests", async function () {
             const upperBound = (expectedShares as BigNumber).mul(100001).div(100000);
             const { balVeNewo: actualShares } = await checkBalances(addr1);
 
-            // +/- 0.001% margin
+            // we are accepting +/- 0.001% rouding errors
             expect(actualShares).to.be.gte(lowerBound).and.lte(upperBound);
         });
-        it("wait and exit all", async () => {
+        it("exit function should withdraw everything", async () => {
             await timeTravel(years(3));
             await veNewo.connect(addr1).exit();
 
@@ -502,6 +522,62 @@ describe("veNewo tests", async function () {
             expect(stakedShares).to.equal(0);
         });
     });
+
+    describe("Testing RecoverERC20 functions", () => {
+        before(initialize);
+        it("changeWhitelistRecoverERC20 should be only callable by owner", async () => {
+            await expect(veNewo
+                .connect(addr1)
+                .changeWhitelistRecoverERC20(address(USDC), true)
+            ).to.be.revertedWith("Only the contract owner may perform this action")
+        });
+        it("Trying to recover a not white listed token should revert", async () => {
+            await USDC
+                .connect(whale)
+                .transfer(address(veNewo), parseUSDC(10000));
+            
+            await expect(veNewo
+                .connect(owner)
+                .recoverERC20(address(USDC), parseUSDC(10000))
+            ).to.be.revertedWith("NotWhitelisted()");
+        });
+        it("Only contract owner should be able to call recoverERC20", async () => {
+            await expect(veNewo
+                .connect(addr1)
+                .recoverERC20(address(USDC), parseUSDC(10000))
+            ).to.be.revertedWith("Only the contract owner may perform this action");
+        });
+        it("recoverERC20 should transfer the right amount of tokens to the owner", async () => {
+            const { balUSDC: balUSDCOwnerBefore } = await checkBalances(owner);
+            
+            await veNewo
+                .connect(owner)
+                .changeWhitelistRecoverERC20(address(USDC), true)
+            
+            await veNewo.connect(owner)
+                .recoverERC20(address(USDC), parseUSDC(10000))
+
+            const { balUSDC: balUSDCOwnerAfter } = await checkBalances(owner);
+
+            expect((balUSDCOwnerAfter as BigNumber).sub(balUSDCOwnerBefore)).to.be.equal(parseUSDC(10000))
+
+            expect(await USDC.balanceOf(address(veNewo))).to.be.equal(0);
+        });
+        it("Trying to transfer ERC20 more than the balance of the contract should revert", async () => {
+            await USDC
+                .connect(whale)
+                .transfer(address(veNewo), parseUSDC(10000));
+            
+            expect(await USDC
+                .balanceOf(address(veNewo))
+            ).to.be.equal(parseUSDC(10000));
+            
+            await expect(veNewo.connect(owner)
+                .recoverERC20(address(USDC), parseUSDC(10001))
+            ).to.be.reverted
+        })
+
+    })
 
     // Try lock, withdraw and stake again
     // Try mint function, and redeem
@@ -559,7 +635,7 @@ describe("veNewo tests", async function () {
                     await veNewo.assetBalanceOf(await addr1.getAddress())
                     ).to.equal(parseNewo(depositAmount1 + depositAmount2));
             });
-            it("Unlock date is the futherest date in the future", async () => {
+            it("Unlock date is the furtherest date in the future", async () => {
                 const unlockDateFirst = baseDate + lockPeriod1
                 const unlockDateSecond = baseDate + waitPeriod1 + lockPeriod2 + 1; // Some rounding bullshit. Must add one to it
                 unlockDate = unlockDateFirst >= unlockDateSecond ? unlockDateFirst : unlockDateSecond;
@@ -568,7 +644,7 @@ describe("veNewo tests", async function () {
                     await veNewo.unlockDate(await addr1.getAddress())
                     ).to.equal(unlockDate);
             });
-            it("Try self withdraw but not in date", async () => {
+            it("Trying to unlock before unlock date should revert", async () => {
                 await expect(
                     veNewo.connect(addr1)
                     .withdraw(
@@ -577,7 +653,7 @@ describe("veNewo tests", async function () {
                         await addr1.getAddress())
                     ).to.be.revertedWith("FundsNotUnlocked()");
             });
-            it("Partial withdraw in date", async () => {
+            it("Partial withdraw in date should burn the right amount of veNewo", async () => {
                 const blockNumBefore = await ethers.provider.getBlockNumber();
                 const blockBefore = await ethers.provider.getBlock(blockNumBefore);
                 await timeTravel(unlockDate - blockBefore.timestamp);
@@ -597,7 +673,7 @@ describe("veNewo tests", async function () {
 
                 expect(shares).to.equal(expectedBurnShares);
             });
-            it("Being kicked by someone else but not in date", async () => {
+            it("Being kicked by someone else before unlock date should revert", async () => {
                 await expect(
                     veNewo.connect(addr2)
                     .withdraw(
@@ -606,7 +682,7 @@ describe("veNewo tests", async function () {
                         address(addr1))
                     ).to.be.revertedWith("FundsNotUnlocked()");
             });
-            it("Being kicked by someone else in date", async () => {
+            it("Being kicked by someone else in date should be permited", async () => {
                 await timeTravel(waitPeriod2);
 
                 const {balNewo: kickerBefore} = await checkBalances(addr2);
@@ -757,62 +833,6 @@ describe("veNewo tests", async function () {
                 expect(balNewoAddr2After).to.gt(balNewoAddr2Before);
             });
         });
-
-        describe("Testing RecoverERC20 functions", () => {
-            before(initialize);
-            it("changeWhitelistRecoverERC20 should be only callable by owner", async () => {
-                await expect(veNewo
-                    .connect(addr1)
-                    .changeWhitelistRecoverERC20(address(USDC), true)
-                ).to.be.revertedWith("Only the contract owner may perform this action")
-            });
-            it("Trying to recover a not white listed token should revert", async () => {
-                await USDC
-                    .connect(whale)
-                    .transfer(address(veNewo), parseUSDC(10000));
-                
-                await expect(veNewo
-                    .connect(owner)
-                    .recoverERC20(address(USDC), parseUSDC(10000))
-                ).to.be.revertedWith("NotWhitelisted()");
-            });
-            it("Only contract owner should be able to call recoverERC20", async () => {
-                await expect(veNewo
-                    .connect(addr1)
-                    .recoverERC20(address(USDC), parseUSDC(10000))
-                ).to.be.revertedWith("Only the contract owner may perform this action");
-            });
-            it("recoverERC20 should transfer the right amount of tokens to the owner", async () => {
-                const { balUSDC: balUSDCOwnerBefore } = await checkBalances(owner);
-                
-                await veNewo
-                    .connect(owner)
-                    .changeWhitelistRecoverERC20(address(USDC), true)
-                
-                await veNewo.connect(owner)
-                    .recoverERC20(address(USDC), parseUSDC(10000))
-    
-                const { balUSDC: balUSDCOwnerAfter } = await checkBalances(owner);
-    
-                expect((balUSDCOwnerAfter as BigNumber).sub(balUSDCOwnerBefore)).to.be.equal(parseUSDC(10000))
-    
-                expect(await USDC.balanceOf(address(veNewo))).to.be.equal(0);
-            });
-            it("Trying to transfer ERC20 more than the balance of the contract should revert", async () => {
-                await USDC
-                    .connect(whale)
-                    .transfer(address(veNewo), parseUSDC(10000));
-                
-                expect(await USDC
-                    .balanceOf(address(veNewo))
-                ).to.be.equal(parseUSDC(10000));
-                
-                await expect(veNewo.connect(owner)
-                    .recoverERC20(address(USDC), parseUSDC(10001))
-                ).to.be.reverted
-            })
-    
-        })
     }
 
     async function userDeposit(totalLockPeriod: number, amount: BigNumberish) {
