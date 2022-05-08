@@ -20,6 +20,13 @@ error RewardTooHigh(uint256 allowed, uint256 reward);
 error NotWhitelisted();
 error InsufficientBalance();
 
+/** 
+ * @title Implements a reward system which grants rewards based on LP
+ * staked in this contract and grants boots based on depositor veToken balance
+ * @author gcontarini jocorrei
+ * @dev This implementation tries to follow the ERC4626 standard
+ * Implement a new constructor to deploy this contract 
+ */
 abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRecipient, IERC4626 {
     using SafeERC20 for IERC20;
 
@@ -78,6 +85,9 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
 
     /* ============ VIEWS (IERC4626) =================== */
     
+    /**
+     * @notice address of asset token
+     */
     function asset() override external view returns (address assetTokenAddress) {
         return assetToken;
     }
