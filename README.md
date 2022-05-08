@@ -2,12 +2,12 @@
 The following contracts implements a veToken for the NewOrder DAO (NWO).
 They were created to replace the old staking rewards contract, currently
 being used by the DAO to distribute rewards to their token holders.
-<br>
+<br><br>
 The main goal is to create a veToken which works as a hub for
 the reward distribution tokens system. This contract (veVault)
 allows users to lock their ERC20 for a period of time. They receive
 veTokens for doing so, which are not transferable.
-<br>
+<br><br>
 Afterwards, they can notify the Rewards contracts which will
 start paying rewards for them. Also, we implemented the LPReward
 contract, which allows for another type of rewards for liquidity
@@ -15,7 +15,7 @@ providers. In this contract, the user locks their LP tokens and
 if they are veToken holders and the amount of tokens being
 provided is at least the same as the ones locked, a boost of rewards
 is granted. The boost is the same applied in the veVault.
-<br>
+<br><br>
 This vault system was loosely inspired by the old StakingReward contract
 by [synthetix](https://github.com/Synthetixio/synthetix) and by other
 veTokens implementations like from Curve. 
