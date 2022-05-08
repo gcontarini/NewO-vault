@@ -22,8 +22,6 @@ import {
     Rewards__factory,
     Rewards,
 } from "../typechain";
-import { months } from "moment";
-import { getAddress } from "ethers/lib/utils";
 
 const newoTokenAddress = "0x98585dFc8d9e7D48F0b1aE47ce33332CF4237D96";
 const TreasuryAddress = "0xdb36b23964FAB32dCa717c99D6AEFC9FB5748f3a";
@@ -72,20 +70,24 @@ describe("Rewards tests", async function () {
             
         });
 
+        // Get contract's factory
         VeNewo = await ethers.getContractFactory("VeNewO");
         Rewards = await ethers.getContractFactory("Rewards");
         XNewo = await ethers.getContractFactory("XNewO");
 
+        // Get contracts factory for already deployed contracts
         newoToken = await ethers.getContractAt(newOrderABI, newoTokenAddress);
         balanceNewo = balance(newoToken);
         parseNewo = await parseToken(newoToken);
         formatNewo = await formatToken(newoToken);
 
+        // Create signers
         const signers = await ethers.getSigners();
         owner = signers[0];
         addr1 = signers[1];
         addr2 = signers[2];
 
+        // Impersonate Treasury
         await hre.network.provider.request({
             method: "hardhat_impersonateAccount",
             params: [TreasuryAddress],
@@ -97,12 +99,15 @@ describe("Rewards tests", async function () {
             "0xfffffffffffffffffffffffffffffffffffffffffffff"
         ]);
 
+        // Get treasury signature
         treasury = await ethers.getSigner(TreasuryAddress);
 
+        // Get Addresses
         ownerAddress = await owner.getAddress();
         addr1Address = await addr1.getAddress();
         treasuryAddress = await treasury.getAddress();
 
+        // veNewo deployement
         veNewo = await VeNewo.deploy(
             ownerAddress,       // address owner_,
             newoTokenAddress,   // address stakingToken_,
@@ -120,6 +125,7 @@ describe("Rewards tests", async function () {
         parseVeNewo = await parseToken(veNewo);
         formatVeNewo = await formatToken(veNewo);
 
+        // rewards deployement
         rewards = await Rewards.deploy(
             ownerAddress,
             veNewo.address,
@@ -151,6 +157,7 @@ describe("Rewards tests", async function () {
             );
     }
     
+    // Testing view functions
     describe("Testing getVaultAddress()", () => {
         before(initialize);
         it("getVaultAddress() should return the address of veNewoVault", async () => {
@@ -213,7 +220,7 @@ describe("Rewards tests", async function () {
             ).to.be.equal(days(20));
         })
     })
-    describe("Hardcore tests", () => {
+    describe("Integrated tests", () => {
         before(initialize)
         it("Rewards should be distributed based on veNewo balance of address", async () => {
             await setReward(10000, years(2));
@@ -261,7 +268,7 @@ describe("Rewards tests", async function () {
         })
     })
 
-    describe("Hardcore test",() => {
+    describe("Integrated tests",() => {
         before(initialize)
         it("Rewards should be distributed based on veNewo with right multipler", async () => {
             const rewardAmount = 1000000;
