@@ -17,6 +17,7 @@ error Unauthorized();
 error UnauthorizedClaim();
 error RewardTooHigh(uint256 allowed, uint256 reward);
 error NotWhitelisted();
+error InsufficientBalance();
 
 abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRecipient, IERC4626 {
     using SafeERC20 for IERC20;
@@ -395,7 +396,6 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     }
 
     function changeWhitelistRecoverERC20(address tokenAddress, bool flag) external onlyOwner {
-        if (tokenAddress == address(assetToken)) revert Unauthorized();
         whitelistRecoverERC20[tokenAddress] = flag;
         emit ChangeWhitelistERC20(tokenAddress, flag);
     }
@@ -403,6 +403,10 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     // Added to support recovering LP Rewards from other systems such as BAL to be distributed to holders
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external onlyOwner {
         if (whitelistRecoverERC20[tokenAddress] == false) revert NotWhitelisted();
+        
+        uint balance = IERC20(tokenAddress).balanceOf(address(this));
+        if (balance < tokenAmount) revert InsufficientBalance(); 
+
         IERC20(tokenAddress).safeTransfer(owner, tokenAmount);
         emit Recovered(tokenAddress, tokenAmount);
     }

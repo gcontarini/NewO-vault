@@ -590,7 +590,7 @@ describe("xNewo tests", function () {
         before(initialize);
         it("If address locked newo for more than min locktime and address has more newO locked than staked, his bonus should be equal to veMult", async () => {
             const newoToLock = 1000;
-            await addSushiLiquidity(addr1, 100, 7);
+            await addSushiLiquidity(addr1, 999, 70);
 
             const { balLp: balLpBefore } = await checkBalances(addr1);
 
@@ -744,13 +744,69 @@ describe("xNewo tests", function () {
         });
         it("getReward() should transfer reward", async () => {
             const { balNewo: balNewoBefore } = await checkBalances(addr1)
-            timeTravel(days(30));
+            await timeTravel(days(30));
             
             await xNewo.connect(addr1).getReward();
             const { balNewo: balNewoAfter } = await checkBalances(addr1)
 
             expect(balNewoAfter).to.gt(balNewoBefore);
         })
+    })
+
+    describe("Testing RecoverERC20 functions", () => {
+        before(initialize);
+        it("changeWhitelistRecoverERC20 should be only callable by owner", async () => {
+            await expect(xNewo
+                .connect(addr1)
+                .changeWhitelistRecoverERC20(address(USDC), true)
+            ).to.be.revertedWith("Only the contract owner may perform this action")
+        });
+        it("Trying to recover a not white listed token should revert", async () => {
+            await USDC
+                .connect(whale)
+                .transfer(address(xNewo), parseUSDC(10000));
+            
+            await expect(xNewo
+                .connect(owner)
+                .recoverERC20(address(USDC), parseUSDC(10000))
+            ).to.be.revertedWith("NotWhitelisted()");
+        });
+        it("Only contract owner should be able to call recoverERC20", async () => {
+            await expect(xNewo
+                .connect(addr1)
+                .recoverERC20(address(USDC), parseUSDC(10000))
+            ).to.be.revertedWith("Only the contract owner may perform this action");
+        });
+        it("recoverERC20 should transfer the right amount of tokens to the owner", async () => {
+            const { balUSDC: balUSDCOwnerBefore } = await checkBalances(owner);
+            
+            await xNewo
+                .connect(owner)
+                .changeWhitelistRecoverERC20(address(USDC), true)
+            
+            await xNewo.connect(owner)
+                .recoverERC20(address(USDC), parseUSDC(10000))
+
+            const { balUSDC: balUSDCOwnerAfter } = await checkBalances(owner);
+
+            expect((balUSDCOwnerAfter as BigNumber).sub(balUSDCOwnerBefore)).to.be.equal(parseUSDC(10000))
+
+            expect(await USDC.balanceOf(address(xNewo))).to.be.equal(0);
+        });
+        it("Trying to transfer ERC20 more than the balance of the contract should revert with error", async () => {
+            await USDC
+                .connect(whale)
+                .transfer(address(xNewo), parseUSDC(10000));
+            
+            expect(await USDC
+                .balanceOf(address(xNewo))
+            ).to.be.equal(parseUSDC(10000));
+            
+            await expect(xNewo.connect(owner)
+                .recoverERC20(address(USDC), parseUSDC(10001))
+            ).to.be.revertedWith("InsufficientBalance()")
+        })
+
     })
 
     describe("Hardcore test", () => {
@@ -816,6 +872,8 @@ describe("xNewo tests", function () {
             const {
                 lpAdded: lpAddr1,
             } = await addSushiLiquidity(addr1, newoToLp, USDCToLp);
+
+            expect(lpAddr1).to.be.equal(lpAddr2);
             
             // addr1 lock newo for veNewo to earn bonus
             await veNewo
@@ -884,6 +942,8 @@ describe("xNewo tests", function () {
             const {
                 lpAdded: lpAddr1,
             } = await addSushiLiquidity(addr1, newoToLp, USDCToLp);
+
+            expect(lpAddr1).to.be.equal(lpAddr2);
             
             // addr1 lock newo for veNewo to earn bonus
             await veNewo
@@ -942,7 +1002,7 @@ describe("xNewo tests", function () {
 
     describe("Hardcore test", () => {
         before(initialize);
-        it("exit function should distribute rewards and withdraw for the caller", async () => {
+        it("exit function should distribute rewards and withdraw everything to the caller", async () => {
             await setReward(10000, years(2));
 
             const newoToLp = 1000;
@@ -1023,6 +1083,11 @@ describe("xNewo tests", function () {
                 .balanceOf(address(addr2))
             ).to.be.equal(0)
         });
+    })
+
+    describe("Hardcore test", () => {
+        before(initialize);
+
     })
 
     async function addSushiLiquidity(signer: Signer, NewoAmount: number, USDCAmount: number){

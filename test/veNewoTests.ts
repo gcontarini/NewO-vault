@@ -5,6 +5,8 @@ import { ethers } from "hardhat";
 import { Signer, Contract, BigNumberish, BigNumber } from "ethers";
 
 import newOrderABI from "../abi/NewOrderERC20.json";
+import USDCABI from "../abi/USDC.json";
+
 import {
     balance,
     parseToken,
@@ -26,12 +28,15 @@ import { months } from "moment";
 
 const newoTokenAddress = "0x98585dFc8d9e7D48F0b1aE47ce33332CF4237D96";
 const TreasuryAddress = "0xdb36b23964FAB32dCa717c99D6AEFC9FB5748f3a";
+const USDCAddress = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
+const WhaleAddress = "0x1B7BAa734C00298b9429b518D621753Bb0f6efF2";
 
 describe("veNewo tests", async function () {
     let VeNewo: VeNewO__factory;
     let XNewo: XNewO__factory;
     let Rewards: Rewards__factory;
     let newoToken: Contract;
+    let USDC: Contract;
 
     let veNewo: VeNewO;
     let rewards: Rewards;
@@ -40,6 +45,7 @@ describe("veNewo tests", async function () {
     let addr1: Signer;
     let addr2: Signer;
     let treasury: Signer;
+    let whale: Signer;
 
     let ownerAddress: string;
     let treasuryAddress: string;
@@ -49,12 +55,15 @@ describe("veNewo tests", async function () {
     let balanceNewo: (entity: any) => Promise<BigNumberish>;
     let stakeBalanceNewo: (entity: any) => Promise<BigNumberish>;
     let balanceVeNewo: (entity: any) => Promise<BigNumberish>;
+    let balanceUSDC: (entity: any) => Promise<BigNumberish>;
 
     let parseNewo: (input: number) => BigNumberish;
     let parseVeNewo: (input: number) => BigNumberish;
+    let parseUSDC: (input: number) => BigNumberish;
 
     let formatNewo: (input: BigNumberish) => string;
     let formatVeNewo: (input: BigNumberish) => string;
+    let formatUSDC: (input: BigNumberish) => string;
 
     const initialize = async () => {
         // reset the block number
@@ -79,6 +88,11 @@ describe("veNewo tests", async function () {
         parseNewo = await parseToken(newoToken);
         formatNewo = await formatToken(newoToken);
 
+        USDC = await ethers.getContractAt(USDCABI, USDCAddress)
+        balanceUSDC = balance(USDC);
+        parseUSDC = await parseToken(USDC);
+        formatUSDC = await formatToken(USDC);
+
         const signers = await ethers.getSigners();
         owner = signers[0];
         addr1 = signers[1];
@@ -96,6 +110,18 @@ describe("veNewo tests", async function () {
         ]);
 
         treasury = await ethers.getSigner(TreasuryAddress);
+
+        await hre.network.provider.request({
+            method: "hardhat_impersonateAccount",
+            params: [WhaleAddress],
+        });
+
+        await hre.network.provider.send("hardhat_setBalance", [
+            WhaleAddress,
+            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        ]);
+
+        whale = await ethers.getSigner(WhaleAddress)
 
         ownerAddress = await owner.getAddress();
         addr1Address = await addr1.getAddress();
@@ -734,6 +760,62 @@ describe("veNewo tests", async function () {
                 expect(balNewoAddr2After).to.gt(balNewoAddr2Before);
             });
         });
+
+        describe("Testing RecoverERC20 functions", () => {
+            before(initialize);
+            it("changeWhitelistRecoverERC20 should be only callable by owner", async () => {
+                await expect(veNewo
+                    .connect(addr1)
+                    .changeWhitelistRecoverERC20(address(USDC), true)
+                ).to.be.revertedWith("Only the contract owner may perform this action")
+            });
+            it("Trying to recover a not white listed token should revert", async () => {
+                await USDC
+                    .connect(whale)
+                    .transfer(address(veNewo), parseUSDC(10000));
+                
+                await expect(veNewo
+                    .connect(owner)
+                    .recoverERC20(address(USDC), parseUSDC(10000))
+                ).to.be.revertedWith("NotWhitelisted()");
+            });
+            it("Only contract owner should be able to call recoverERC20", async () => {
+                await expect(veNewo
+                    .connect(addr1)
+                    .recoverERC20(address(USDC), parseUSDC(10000))
+                ).to.be.revertedWith("Only the contract owner may perform this action");
+            });
+            it("recoverERC20 should transfer the right amount of tokens to the owner", async () => {
+                const { balUSDC: balUSDCOwnerBefore } = await checkBalances(owner);
+                
+                await veNewo
+                    .connect(owner)
+                    .changeWhitelistRecoverERC20(address(USDC), true)
+                
+                await veNewo.connect(owner)
+                    .recoverERC20(address(USDC), parseUSDC(10000))
+    
+                const { balUSDC: balUSDCOwnerAfter } = await checkBalances(owner);
+    
+                expect((balUSDCOwnerAfter as BigNumber).sub(balUSDCOwnerBefore)).to.be.equal(parseUSDC(10000))
+    
+                expect(await USDC.balanceOf(address(veNewo))).to.be.equal(0);
+            });
+            it("Trying to transfer ERC20 more than the balance of the contract should revert", async () => {
+                await USDC
+                    .connect(whale)
+                    .transfer(address(veNewo), parseUSDC(10000));
+                
+                expect(await USDC
+                    .balanceOf(address(veNewo))
+                ).to.be.equal(parseUSDC(10000));
+                
+                await expect(veNewo.connect(owner)
+                    .recoverERC20(address(USDC), parseUSDC(10001))
+                ).to.be.reverted
+            })
+    
+        })
     }
 
     async function userDeposit(totalLockPeriod: number, amount: BigNumberish) {
@@ -757,6 +839,7 @@ describe("veNewo tests", async function () {
         const balNewo = await balanceNewo(signer);
         const balVeNewo = await balanceVeNewo(signer);
         const balStakeNewo = await stakeBalanceNewo(signer);
+        const balUSDC = await balanceUSDC(signer);
         // console.log(
         //     `\tbalance of newo of ${address(signer)}: ${formatNewo(balNewo)}`
         // );
@@ -768,6 +851,6 @@ describe("veNewo tests", async function () {
         // console.log(
         //     `\tbalance of staked newo of ${address(signer)}: ${formatNewo(balNewo)}`
         // );
-        return { balNewo, balVeNewo, balStakeNewo };
+        return { balNewo, balVeNewo, balStakeNewo, balUSDC };
     }
 });

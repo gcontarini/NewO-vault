@@ -506,7 +506,6 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     
     // Whitelist a ERC20 to allow recoverERC20 function. Emits an event to alert users.
     function changeWhitelistRecoverERC20(address tokenAddress, bool flag) external onlyOwner {
-        if (tokenAddress == _assetTokenAddress) revert Unauthorized();
         whitelistRecoverERC20[tokenAddress] = flag;
         emit ChangeWhitelistERC20(tokenAddress, flag);
     }
@@ -514,6 +513,13 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     // Added to support to recover ERC20 token within a whitelist 
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external onlyOwner {
         if (whitelistRecoverERC20[tokenAddress] == false) revert NotWhitelisted();
+        
+        uint balance = IERC20(tokenAddress).balanceOf(address(this));
+        if (balance < tokenAmount) revert InsufficientBalance({
+                available: balance,
+                required: tokenAmount
+        });
+        
         IERC20(tokenAddress).safeTransfer(owner, tokenAmount);
         emit Recovered(tokenAddress, tokenAmount);
     }
