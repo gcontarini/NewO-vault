@@ -82,9 +82,9 @@ First install npm dependecies
 `npm install`
 
 Create a .env file
-```shell
+`
 echo "ETH_MAINFORK=<INSERT URL PROVIDER WITH YOUR KEYS>" >> .env
-```
+`
 
 Install npm dependecies
 ```shell
