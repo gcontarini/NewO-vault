@@ -1,7 +1,8 @@
-# New Order voting escrow (ve) vault system
-The following contracts implement a ve-Token for the NewOrder DAO (NWO).
+# New Order Voting Escrow (ve) Vault System
+
+The following contracts implement a ve-Token for the NewOrder.
 They were created to replace the old staking rewards contracts, currently
-being used by the DAO to distribute rewards to their token holders in
+being used by New Order to distribute rewards to their token holders in
 favor of a system that rewards conviction.
 <br><br>
 
@@ -30,23 +31,28 @@ If an LP token staker has a matching amount of locked NEWO in the veNEWO
 vault to match the NEWO in the staked LP; the LpRewards vault will boost 
 the LP rewards by the ve Multiplier.
 
-The contracts are discussed in detail, below.
-
-<br><br>
+The contracts are discussed in further detail, below.
 
 
-This vault system was loosely inspired by the old StakingReward contract
-by [synthetix](https://github.com/Synthetixio/synthetix) and by other
-veTokens implementations like from Curve.
 
-# Rewards Boost
+# Locking & Rewards Boost
 
-veNEWO offers a bonus depending on how long an individual has conviction
+veNEWO offers a bonus depending on how long an individual account has conviction
 to lock their tokens for.
 
-The minimum time to lock is 3 months to earn a 1.0x multiplier.
+The account locking tokens becomes a veNEWO Holder with their amount of veNEWO determined by the amount of veNEWO locked and the locking time period. 
 
-The maximum bonus is 3.3x when tokens are locked for 3 years.
+The minimum time to lock is 3 months (90 days) to earn a 1.0x multiplier.
+
+The maximum bonus of 3.3x is achieved when tokens are locked for the maximum of 3 years (1095).
+
+
+Amount of veNEWO = NEWO_locked * ve_multliper(lock_time_days)
+lock_time_days = x
+ve_multliper = x^3 * 1.54143856e-09 - x^2 * 7.48615904e-07 + x * 1.16304927e-03 + 9.00265646e-01
+
+Note: the amount of veNEWO remains constant until it is withdrawn rather than when it becomes unlocked.
+
 
 ![veNEWO Bonus](./img/veNEWO.png "veNEWO Rewards")
 
@@ -72,6 +78,12 @@ Rather than have ve rewards decay over time like some other ve reward models,
 causing participants to have to re-lock occasionally in order to maintain 
 rewards (and burn transaction fees, accordingly) we instead elect to encourage 
 longer locking periods with super-linear veNEWO rewards (see figure).
+
+# Contracts
+
+This vault system was loosely inspired by the old StakingReward contract
+by [synthetix](https://github.com/Synthetixio/synthetix) and by other
+veTokens implementations like from Curve.
 
 # Dependencies
 requires Hardhat to be installed in order to run the test suite found in /test; 
