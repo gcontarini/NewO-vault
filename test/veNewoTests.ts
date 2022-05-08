@@ -1,4 +1,3 @@
-import * as dotenv from "dotenv";
 import { expect } from "chai";
 import hre = require("hardhat");
 import { ethers } from "hardhat";
@@ -24,7 +23,6 @@ import {
     Rewards__factory,
     Rewards,
 } from "../typechain";
-import { months } from "moment";
 
 const newoTokenAddress = "0x98585dFc8d9e7D48F0b1aE47ce33332CF4237D96";
 const TreasuryAddress = "0xdb36b23964FAB32dCa717c99D6AEFC9FB5748f3a";
@@ -163,8 +161,7 @@ describe("veNewo tests", async function () {
             .connect(addr1)
             .approve(
                 address(veNewo),
-                ethers.constants.MaxUint256 
-            );
+                ethers.constants.MaxUint256);
     };
 
     describe("Test view functions for simplest case.", async () => {        
