@@ -20,9 +20,9 @@ This vault system was loosely inspired by the old StakingReward contract
 by [synthetix](https://github.com/Synthetixio/synthetix) and by other
 veTokens implementations like from Curve. 
 
-# Instructions to run locally
-Go to repository root
-<br>
+# Instructions to run
+First install npm dependecies
+`npm install`
 
 Create a .env file
 ```shell
