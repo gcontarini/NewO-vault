@@ -90,7 +90,7 @@ Install npm dependecies
 ```shell
 npm install
 ```
-<br>
+
 Compile the contracts 
 ```shell
 npx hardhat compile
