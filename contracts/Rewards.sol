@@ -53,6 +53,11 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
         return vault;
     }
 
+    /**
+     * Pick the correct date for applying the reward
+     * Apply until the end of periodFinish or until
+     * unlockDate for funds in the veVault
+     */
     function lastTimeRewardApplicable(address owner) public view returns (uint256) {
         if (owner != address(0) && accounts[owner].dueDate < periodFinish) {
             return block.timestamp < accounts[owner].dueDate ? block.timestamp : accounts[owner].dueDate;
@@ -60,6 +65,13 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
         return block.timestamp < periodFinish ? block.timestamp : periodFinish;
     }
 
+    /**
+     * Calculate how much reward must be given for an user
+     * per token in veVault. If dueDate is less than the
+     * period finish, a "negative" reward is applied to
+     * ensure that rewards are applied only until this
+     * date.
+     */
     function rewardPerToken(address owner) public view returns (uint256) {
         uint256 _totalSupply = IVeVault(vault).totalSupply();
 
@@ -86,7 +98,11 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
                 );
     }
     
-    // This function calculates how much rewards a staker earned and there for will get when calling getReward()
+    /**
+     * Calculates how much rewards a staker earned 
+     * until this moment. Only apply reward until
+     * period finish or unlock date.
+     */
     function earned(address owner) public view returns (uint256) {
         uint256 currentReward = rewardPerToken(owner);
         uint256 paidReward = accounts[owner].rewardPerTokenPaid;
@@ -106,27 +122,35 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
 
     /* ========== MUTATIVE FUNCTIONS ========== */
 
+    /**
+     * Notify the reward contract about a deposit in the
+     * veVault contract. This is important to assure the
+     * depositer will account his rewards.
+     */
     function notifyDeposit() public updateReward(msg.sender) returns(Account memory) {
         emit NotifyDeposit(msg.sender, accounts[owner].rewardPerTokenPaid, accounts[owner].dueDate);
         return accounts[owner];
     }
 
-    function getReward() public nonReentrant updateReward(msg.sender) {
+    /**
+     * Claim rewards for user. In case of no rewards claimable
+     * just update the user status and do nothing.
+     */
+    function getReward() public updateReward(msg.sender) {
         uint256 reward = accounts[msg.sender].rewards;
-        if (reward > 0) {
-            IERC20 rToken = IERC20(rewardsToken);
-            uint256 balance = rToken.balanceOf(address(this));
-            if (reward > balance) 
-                reward = balance;
-
-            accounts[msg.sender].rewards = 0;
-            rToken.safeTransfer(msg.sender, reward);
-            emit RewardPaid(msg.sender, reward);
-        }
+        if (reward <= 0) return;
+        
+        accounts[msg.sender].rewards = 0;
+        IERC20(rewardsToken).safeTransfer(msg.sender, reward);
+        emit RewardPaid(msg.sender, reward);
     }
 
     /* ========== RESTRICTED FUNCTIONS ========== */
 
+    /**
+     * Set the contract to start distribuiting rewards
+     * for ve holders.
+     */
     function notifyRewardAmount(uint256 reward)
             external
             override 
@@ -166,11 +190,17 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
     
     /* ========== MODIFIERS ========== */
 
+    /**
+     * Update user rewards accordlingly to
+     * the current timestamp.
+     */
     modifier updateReward(address owner) {
         rewardPerTokenStored = rewardPerToken(address(0));
         lastUpdateTime = lastTimeRewardApplicable(address(0));
 
         if (owner != address(0)) {
+            if (accounts[owner].rewardPerTokenPaid == 0)
+                accounts[owner].rewardPerTokenPaid = rewardPerTokenStored;
             accounts[owner].dueDate = IVeVault(vault).unlockDate(owner);
             accounts[owner].rewards = earned(owner);
             accounts[owner].rewardPerTokenPaid = rewardPerToken(address(0));

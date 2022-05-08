@@ -265,6 +265,7 @@ describe("Rewards tests", async function () {
         before(initialize)
         it("Rewards should be distributed based on veNewo with right multipler", async () => {
             const rewardAmount = 1000000;
+            const upperBound = (parseNewo(rewardAmount) as BigNumber).mul(10001).div(10000);
             await setReward(rewardAmount, days(90));
 
             await newoToken.connect(treasury).transfer(address(addr2), parseNewo(1000));
@@ -306,22 +307,21 @@ describe("Rewards tests", async function () {
             const { balNewo: balNewoAddr1After } = await checkBalances(addr1);
             const { balNewo: balNewoAddr2After } = await checkBalances(addr2);
 
+            const bonus = (balNewoAddr1After as BigNumber).mul("1000000000000000000").div(balNewoAddr2After);
+            const addr1Mult = (balVeNewoAddr1 as BigNumber).mul("1000000000000000000").div(balNewoAddr1Before);
 
-            // const bonus = (balNewoAddr1After as BigNumber).mul("1000000000000000000").div(balNewoAddr2After);
-            // const addr1Mult = (balVeNewoAddr1 as BigNumber).mul("1000000000000000000").div(balNewoAddr1Before);
-
-            // console.log("\nmultiplier of addr1", addr1Mult);
+            console.log("\nmultiplier of addr1", addr1Mult);
 
             const newoTokensInContract = await newoToken.balanceOf(address(rewards));
-            // console.log("\n\n still in contract", formatNewo(newoTokensInContract));
+            console.log("\n\n still in contract", formatNewo(newoTokensInContract));
             
-            // expect(bonus).to.be.equal(addr1Mult);
+            expect(bonus).to.be.gte(addr1Mult.mul(999).div(1000)).and.lte(addr1Mult.mul(1001).div(1000));
 
-            // console.log("addr1 bonus compared to addr2", bonus);
+            console.log("addr1 bonus compared to addr2", bonus);
             
             expect(balNewoAddr1After).to.gt(balNewoAddr2After);
 
-            expect(newoTokensInContract).to.be.equal(0);
+            expect(newoTokensInContract).to.be.lte(upperBound);
         })
     })
 
