@@ -70,20 +70,24 @@ describe("Rewards tests", async function () {
             
         });
 
+        // Get contract's factory
         VeNewo = await ethers.getContractFactory("VeNewO");
         Rewards = await ethers.getContractFactory("Rewards");
         XNewo = await ethers.getContractFactory("XNewO");
 
+        // Get contracts factory for already deployed contracts
         newoToken = await ethers.getContractAt(newOrderABI, newoTokenAddress);
         balanceNewo = balance(newoToken);
         parseNewo = await parseToken(newoToken);
         formatNewo = await formatToken(newoToken);
 
+        // Create signers
         const signers = await ethers.getSigners();
         owner = signers[0];
         addr1 = signers[1];
         addr2 = signers[2];
 
+        // Impersonate Treasury
         await hre.network.provider.request({
             method: "hardhat_impersonateAccount",
             params: [TreasuryAddress],
@@ -95,12 +99,15 @@ describe("Rewards tests", async function () {
             "0xfffffffffffffffffffffffffffffffffffffffffffff"
         ]);
 
+        // Get treasury signature
         treasury = await ethers.getSigner(TreasuryAddress);
 
+        // Get Addresses
         ownerAddress = await owner.getAddress();
         addr1Address = await addr1.getAddress();
         treasuryAddress = await treasury.getAddress();
 
+        // veNewo deployement
         veNewo = await VeNewo.deploy(
             ownerAddress,       // address owner_,
             newoTokenAddress,   // address stakingToken_,
@@ -118,6 +125,7 @@ describe("Rewards tests", async function () {
         parseVeNewo = await parseToken(veNewo);
         formatVeNewo = await formatToken(veNewo);
 
+        // rewards deployement
         rewards = await Rewards.deploy(
             ownerAddress,
             veNewo.address,
@@ -149,6 +157,7 @@ describe("Rewards tests", async function () {
             );
     }
     
+    // Testing view functions
     describe("Testing getVaultAddress()", () => {
         before(initialize);
         it("getVaultAddress() should return the address of veNewoVault", async () => {
@@ -211,7 +220,7 @@ describe("Rewards tests", async function () {
             ).to.be.equal(days(20));
         })
     })
-    describe("Hardcore tests", () => {
+    describe("Integrated tests", () => {
         before(initialize)
         it("Rewards should be distributed based on veNewo balance of address", async () => {
             await setReward(10000, years(2));
@@ -259,7 +268,7 @@ describe("Rewards tests", async function () {
         })
     })
 
-    describe("Hardcore test",() => {
+    describe("Integrated tests",() => {
         before(initialize)
         it("Rewards should be distributed based on veNewo with right multipler", async () => {
             const rewardAmount = 1000000;
@@ -299,75 +308,6 @@ describe("Rewards tests", async function () {
 
             await timeTravel(days(90));
             
-            await rewards.connect(addr1).getReward();
-            await rewards.connect(addr2).getReward();
-
-            const { balNewo: balNewoAddr1After } = await checkBalances(addr1);
-            const { balNewo: balNewoAddr2After } = await checkBalances(addr2);
-
-            const bonus = (balNewoAddr1After as BigNumber).mul("1000000000000000000").div(balNewoAddr2After);
-            const addr1Mult = (balVeNewoAddr1 as BigNumber).mul("1000000000000000000").div(balNewoAddr1Before);
-
-            console.log("\nmultiplier of addr1", addr1Mult);
-
-            const newoTokensInContract = await newoToken.balanceOf(address(rewards));
-            console.log("\n\n still in contract", formatNewo(newoTokensInContract));
-            
-            expect(bonus).to.be.gte(addr1Mult.mul(999).div(1000)).and.lte(addr1Mult.mul(1001).div(1000));
-
-            console.log("addr1 bonus compared to addr2", bonus);
-            
-            expect(balNewoAddr1After).to.gt(balNewoAddr2After);
-
-            expect(newoTokensInContract).to.be.lte(upperBound);
-        })
-    })
-
-    describe("Hardcore test",() => {
-        before(initialize)
-        it("Rewards should be distributed based on veNewo with right multipler", async () => {
-            const rewardAmount = 1000000;
-            const upperBound = (parseNewo(rewardAmount) as BigNumber).mul(10001).div(10000);
-            await setReward(rewardAmount, years(2));
-
-            await newoToken.connect(treasury).transfer(address(addr2), parseNewo(1000));
-
-            const { balNewo: balNewoAddr1Before } = await checkBalances(addr1);
-            const { balNewo: balNewoAddr2Before } = await checkBalances(addr2);
-
-            expect(balNewoAddr1Before).to.be.equal(balNewoAddr2Before);
-            
-            await veNewo
-                .connect(addr1)
-                ["deposit(uint256,address,uint256)"](
-                balNewoAddr1Before,
-                address(addr1),
-                years(2)
-            )
-
-            await rewards.connect(addr1).notifyDeposit();
-
-            await veNewo.connect(addr2)
-                ["deposit(uint256,address,uint256)"](
-                balNewoAddr2Before,
-                address(addr2),
-                days(90)
-            )
-            
-            await rewards.connect(addr2).notifyDeposit();
-
-            const { balVeNewo: balVeNewoAddr1 } = await checkBalances(addr1);
-            const { balVeNewo: balVeNewoAddr2 } = await checkBalances(addr2);
-
-            expect(balVeNewoAddr1).to.gt(balVeNewoAddr2)
-
-            await timeTravel(days(30));
-            
-            await rewards.connect(addr1).getReward();
-            await rewards.connect(addr2).getReward();
-
-            await timeTravel(days(60));
-
             await rewards.connect(addr1).getReward();
             await rewards.connect(addr2).getReward();
 
