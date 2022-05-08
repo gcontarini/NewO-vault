@@ -7,19 +7,34 @@ favor of a system that rewards conviction.
 
 ![veNEWO System](./img/veNEWO_system_diagram.001.png "veNEWO system")
 
+The veNEWO system allows a token holder to lock up their ERC20 tokens for a 
+time period, and the token holder recieves a bonus amount of veNEWO depending
+on the number of tokens and the duration for which they are locked.
+
 The main goal is to create a ve token which works with other
 reward distribution token contracts. This contract (veVault)
 allows users to lock their ERC20 for a period of time. They receive
 veTokens for doing so, which are not transferable.
+
+Any number of reward distrubion contracts (Rewards.sol) can use the veNEWO held by an 
+account as the basis for the rewards accrued to the account.
+
+In general the token holder has to notify each reward contract of the
+token holder's veNEWO locked balance by calling notifyDeposit() on 
+each rewards contract. The UX can be simplified by using a proxy contract
+and locking/notifying all in one step.
+
+There is a variant of the rewards distribution contract for LP rewards
+(LpRewards.sol) which implements special logic (see below). 
+If an LP token staker has a matching amount of locked NEWO in the veNEWO 
+vault to match the NEWO in the staked LP; the LpRewards vault will boost 
+the LP rewards by the ve Multiplier.
+
+The contracts are discussed in detail, below.
+
 <br><br>
-Afterwards, they can notify the Rewards contracts which will
-start paying rewards for them. Also, we implemented the LPReward
-contract, which allows for another type of rewards for liquidity
-providers. In this contract, the user locks their LP tokens and
-if they are veToken holders and the amount of tokens being
-provided is at least the same as the ones locked, a boost of rewards
-is granted. The boost is the same applied in the veVault.
-<br><br>
+
+
 This vault system was loosely inspired by the old StakingReward contract
 by [synthetix](https://github.com/Synthetixio/synthetix) and by other
 veTokens implementations like from Curve.
@@ -36,6 +51,20 @@ The maximum bonus is 3.3x when tokens are locked for 3 years.
 ![veNEWO Bonus](./img/veNEWO.png "veNEWO Rewards")
 
 
+# Tokenized Vault Standard (EIP4626)
+
+
+https://eips.ethereum.org/EIPS/eip-4626
+
+Some don’t make sense so were unimplemented.
+
+For example, the transfer function reverts if called.
+
+# Forced un-stacking after grace period like in Convex
+
+
+# Re-locking
+
 
 # Comparison to other ve token systems
 
@@ -45,7 +74,8 @@ rewards (and burn transaction fees, accordingly) we instead elect to encourage
 longer locking periods with super-linear veNEWO rewards (see figure).
 
 # Dependencies
-requires Hardhat to be installed; instructions below.
+requires Hardhat to be installed in order to run the test suite found in /test; 
+Installation instructions are found below.
 
 # Instructions to run
 First install npm dependecies
