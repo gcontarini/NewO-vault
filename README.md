@@ -49,7 +49,7 @@ The maximum bonus of 3.3x is achieved when tokens are locked for the maximum of 
 
 Amount of veNEWO = NEWO_locked * ve_multliper(lock_time_days)
 lock_time_days = x
-$$ ve_multliper = x^3 * 1.54143856e-09 - x^2 * 7.48615904e-07 + x * 1.16304927e-03 + 9.00265646e-01 $$
+$$ve_multliper=x^3 * 1.54143856e-09 - x^2 * 7.48615904e-07 + x * 1.16304927e-03 + 9.00265646e-01$$
 
 Note: the amount of veNEWO remains constant until it is withdrawn rather than when it becomes unlocked.
 
