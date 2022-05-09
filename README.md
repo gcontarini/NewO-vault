@@ -1,6 +1,6 @@
 # New Order Voting Escrow (ve) Vault System
 
-The following contracts implement a ve-Token for the NewOrder.
+The code in this repository implements a Voting Escrow (ve) token for NewOrder.
 They were created to replace the old staking rewards contracts, currently
 being used by New Order to distribute rewards to their token holders in
 favor of a system that rewards conviction.
@@ -47,8 +47,11 @@ The maximum bonus of 3.3x is achieved when tokens are locked for the maximum of 
 
 
 Amount of veNEWO = NEWO_locked * ve_multliper(x)
+
 where x is the lockup time in days.
-then.
+
+Then,
+
 ve_multliper = x^3 * 1.54143856e-09 - x^2 * 7.48615904e-07 + x * 1.16304927e-03 + 9.00265646e-01
 
 
@@ -58,17 +61,15 @@ ve_multliper = x^3 * 1.54143856e-09 - x^2 * 7.48615904e-07 + x * 1.16304927e-03 
 
 # Tokenized Vault Standard (EIP4626)
 
-the veNEWO vault as well as the LP staking rewards vault implement EIP4626
+the veNEWO vault (veNEWO.sol) as well as the LP staking rewards vault (LpRewards.sol) implement EIP4626
+
 https://eips.ethereum.org/EIPS/eip-4626
 
-It didn't make sense to implement some functions - these revert upon calling.
+It didn't make sense to implement all functions - some revert upon calling.
 
 For example, the transfer function reverts if called because these tokens are meant to be non-transferrable.
 
-# Forced un-staking after grace period like in Convex
 
-
-# Re-locking
 
 
 # Comparison to other ve token systems
@@ -77,7 +78,7 @@ For example, the transfer function reverts if called because these tokens are me
 
 Rather than have ve rewards decay over time like some other ve reward models,
 causing participants to have to re-lock occasionally in order to maintain 
-rewards (and burn transaction fees, accordingly) we instead elect to encourage 
+rewards (and burn transaction fees, accordingly) we instead encourage 
 longer locking periods with super-linear veNEWO rewards (see figure).
 
 Therefore, the amount of veNEWO remains constant until it is unstaked.
@@ -86,9 +87,15 @@ Therefore, the amount of veNEWO remains constant until it is unstaked.
 
 Following a configurable grace period, anyone can forcibly unstake an account if the
 locking period + grace period have elapsed. The account forcing the unstaking receives 
-some of the forcibly unstaked account's unclaimed rewards.
+some of the forcibly unstaked account's unclaimed rewards (another configurable parameter).
 
+## Re-locking
 
+An address can re-lock its locked tokens anytime. Re-locking causes the amount of veNEWO
+to be recalculated, and the new unlock time must be at the same time or in the future 
+when compared to the exisitng unlock time for the same address.
+
+The re-locked address needs to notify reward vaults of the new unlock time and veNEWO amount.
 
 
 # Contracts
