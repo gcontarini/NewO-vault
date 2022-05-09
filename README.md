@@ -23,7 +23,7 @@ account as the basis for the rewards accrued to the account.
 In general the token holder has to notify each reward contract of the
 token holder's veNEWO locked balance by calling notifyDeposit() on 
 each rewards contract. The UX can be simplified by using a proxy contract
-and locking/notifying all in one step.
+and locking tokens in the veNEWO.sol and calling notifyDeposit() on all known rewards contracts.
 
 There is a variant of the rewards distribution contract for LP rewards
 (LpRewards.sol) which implements special logic (see below). 
@@ -37,21 +37,20 @@ The contracts are discussed in further detail, below.
 
 # Locking & Rewards Boost
 
-veNEWO offers a bonus depending on how long an individual account has conviction
-to lock their tokens for.
+veNEWO offers a bonus depending on how long an individual account decides to lock their tokens for.
 
 The account locking tokens becomes a veNEWO Holder with their amount of veNEWO determined by the amount of veNEWO locked and the locking time period. 
 
 The minimum time to lock is 3 months (90 days) to earn a 1.0x multiplier.
 
-The maximum bonus of 3.3x is achieved when tokens are locked for the maximum of 3 years (1095).
+The maximum bonus of 3.3x is achieved when tokens are locked for the maximum of 3 years (1095 days).
 
 
-Amount of veNEWO = NEWO_locked * ve_multliper(lock_time_days)
-lock_time_days = x
-$$ve_multliper=x^3 * 1.54143856e-09 - x^2 * 7.48615904e-07 + x * 1.16304927e-03 + 9.00265646e-01$$
+Amount of veNEWO = NEWO_locked * ve_multliper(x)
+where x is the lockup time in days.
+then.
+ve_multliper = x^3 * 1.54143856e-09 - x^2 * 7.48615904e-07 + x * 1.16304927e-03 + 9.00265646e-01
 
-Note: the amount of veNEWO remains constant until it is withdrawn rather than when it becomes unlocked.
 
 
 ![veNEWO Bonus](./img/veNEWO.png "veNEWO Rewards")
@@ -59,12 +58,12 @@ Note: the amount of veNEWO remains constant until it is withdrawn rather than wh
 
 # Tokenized Vault Standard (EIP4626)
 
-
+the veNEWO vault as well as the LP staking rewards vault implement EIP4626
 https://eips.ethereum.org/EIPS/eip-4626
 
-Some don’t make sense so were unimplemented.
+It didn't make sense to implement some functions - these revert upon calling.
 
-For example, the transfer function reverts if called.
+For example, the transfer function reverts if called because these tokens are meant to be non-transferrable.
 
 # Forced un-staking after grace period like in Convex
 
@@ -74,10 +73,23 @@ For example, the transfer function reverts if called.
 
 # Comparison to other ve token systems
 
+## Constant veNEWO level
+
 Rather than have ve rewards decay over time like some other ve reward models,
 causing participants to have to re-lock occasionally in order to maintain 
 rewards (and burn transaction fees, accordingly) we instead elect to encourage 
 longer locking periods with super-linear veNEWO rewards (see figure).
+
+Therefore, the amount of veNEWO remains constant until it is unstaked.
+
+## Forced Un-staking
+
+Following a configurable grace period, anyone can forcibly unstake an account if the
+locking period + grace period have elapsed. The account forcing the unstaking receives 
+some of the forcibly unstaked account's unclaimed rewards.
+
+
+
 
 # Contracts
 
