@@ -648,11 +648,6 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         uint256 unlockTime = block.timestamp + lockTime;
         if (_unlockDate[receiver] < unlockTime)
             _unlockDate[receiver] = unlockTime;
-        
-        // Update assets
-        _totalManagedAssets += assets;
-        _assetBalances[receiver] += assets;
-        IERC20(_assetTokenAddress).safeTransferFrom(receiver, address(this), assets);
 
         // The end balance of shares can be
         // lower than the amount returned by
@@ -661,6 +656,10 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         if (assets == 0) {
             emit Relock(msg.sender, receiver, assets, _unlockDate[receiver]);
         } else {
+            // Update assets
+            _totalManagedAssets += assets;
+            _assetBalances[receiver] += assets;
+            IERC20(_assetTokenAddress).safeTransferFrom(receiver, address(this), assets);
             emit Deposit(msg.sender, receiver, assets, shares);
         }
         return shares;
