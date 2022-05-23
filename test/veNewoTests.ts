@@ -426,21 +426,6 @@ describe("veNewo tests", async function () {
         });
     });
     
-    describe("Deposit 0 newo for valid time", () => {
-        before(initialize);
-        it("Deposit of 0 Newo should revert", async () => {
-            await expect(
-                veNewo
-                    .connect(addr1)
-                    ["deposit(uint256,address,uint256)"](
-                        parseNewo(0),
-                        address(addr1),
-                        years(1)
-                    )
-            ).to.be.revertedWith("Unauthorized()");
-        });
-    });
-
     describe("Testing mint and redeem functions", () => {
         before(initialize);
         it("Depositor must have the amount of shares inside the bounderies", async () => {
@@ -577,6 +562,38 @@ describe("veNewo tests", async function () {
             ).to.be.reverted
         })
 
+    })
+    
+    describe("Testing relock", () => {
+        before(initialize);
+        let unlockDate: number;
+        const amount = 100;
+        
+        it("Relock for longer period", async () => {
+            await userDeposit(days(90), parseNewo(amount));
+            
+            // time travel
+            await timeTravel(60);
+            // Relock
+            await userDeposit(years(1), parseNewo(0));
+            
+            // Get time when relock happened 
+            const blockNumBefore = await ethers.provider.getBlockNumber();
+            const blockBefore = await ethers.provider.getBlock(blockNumBefore);
+            const baseDate = blockBefore.timestamp;
+            
+            unlockDate = baseDate + years(1);
+            expect(
+                await veNewo.unlockDate(await addr1.getAddress())
+                ).to.equal(unlockDate);
+        });
+        it("Relock for shorter period should keep the furthest date", async () => {
+            await userDeposit(days(90), parseNewo(0));
+            
+            expect(
+                await veNewo.unlockDate(await addr1.getAddress())
+                ).to.equal(unlockDate);
+        });
     })
 
     // Try lock, withdraw and stake again
