@@ -640,8 +640,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         ) internal 
         updateShares(receiver, lockTime)
         returns (uint256 shares) {
-        if (assets <= 0 || msg.sender != receiver
-            || lockTime < _lockTimer.min || lockTime > _lockTimer.max)
+        if (msg.sender != receiver || lockTime < _lockTimer.min || lockTime > _lockTimer.max)
             revert Unauthorized();
 
         // Update lockTime
@@ -659,7 +658,11 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         // lower than the amount returned by
         // this function
         shares = convertToShares(assets, lockTime);
-        emit Deposit(msg.sender, receiver, assets, shares);
+        if (assets == 0) {
+            emit Relock(msg.sender, receiver, assets, _unlockDate[receiver]);
+        } else {
+            emit Deposit(msg.sender, receiver, assets, shares);
+        }
         return shares;
     }
     
@@ -777,6 +780,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     
     /* ========== EVENTS ========== */
 
+    event Relock(address indexed caller, address indexed receiver, uint256 assets, uint256 newUnlockDate);
     event PayPenalty(address indexed caller, address indexed owner, uint256 assets);
     event Burn(address indexed user, uint256 shares);
     event Mint(address indexed user, uint256 shares);
