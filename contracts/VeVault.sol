@@ -15,6 +15,9 @@ error InsufficientBalance(uint256 available, uint256 required);
 error NotWhitelisted();
 error FundsInGracePeriod();
 error FundsNotUnlocked();
+error InvalidSetting();
+error LockTimeOutOfBounds(uint256 lockTime, uint256 lockMin, uint256 lockMax);
+error LockTimeLessThanCurrent(uint256 currentUnlockDate, uint256 newUnlockDate);
 
 /** 
  * @title Implements voting escrow tokens with time based locking system
@@ -566,6 +569,8 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * @notice Owner can change state variabes which controls the penalty system
      */
     function changeEpoch(uint256 newEpoch) external onlyOwner {
+        if (newEpoch == 0)
+            revert InvalidSetting();
         _lockTimer.epoch = newEpoch;
     }
     
@@ -573,6 +578,8 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * @notice Owner can change state variabes which controls the penalty system
      */
     function changeMinPenalty(uint256 newMinPenalty) external onlyOwner {
+        if (newMinPenalty >= _penalty.maxPerc)
+            revert InvalidSetting();
         _penalty.minPerc = newMinPenalty;
     }
     
@@ -580,6 +587,8 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * @notice Owner can change state variabes which controls the penalty system
      */
     function changeMaxPenalty(uint256 newMaxPenalty) external onlyOwner {
+        if (newMaxPenalty <= _penalty.minPerc)
+            revert InvalidSetting();
         _penalty.maxPerc = newMaxPenalty;
     }
     
@@ -640,14 +649,16 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         ) internal 
         updateShares(receiver, lockTime)
         returns (uint256 shares) {
-        if (msg.sender != receiver || lockTime < _lockTimer.min || lockTime > _lockTimer.max)
+        if (msg.sender != receiver)
             revert Unauthorized();
+        if (lockTime < _lockTimer.min || lockTime > _lockTimer.max)
+            revert LockTimeOutOfBounds(lockTime, _lockTimer.min, _lockTimer.max);
 
-        // Update lockTime
-        // Always choose the date futher in the future
+        // Cannot lock more funds less than the current
         uint256 unlockTime = block.timestamp + lockTime;
-        if (_unlockDate[receiver] < unlockTime)
-            _unlockDate[receiver] = unlockTime;
+        if (unlockTime < _unlockDate[receiver])
+            revert LockTimeLessThanCurrent(_unlockDate[receiver], unlockTime);
+        _unlockDate[receiver] = unlockTime;
 
         // The end balance of shares can be
         // lower than the amount returned by

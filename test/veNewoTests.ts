@@ -400,7 +400,7 @@ describe("veNewo tests", async function () {
                         address(addr1),
                         days(0)
                     )
-            ).to.be.revertedWith("Unauthorized()");
+            ).to.be.revertedWith("LockTimeOutOfBounds(0, 7776000, 94608000)");
         });
         it("Deposit for 30 days should revert", async () => {
             await expect(
@@ -411,7 +411,7 @@ describe("veNewo tests", async function () {
                         address(addr1),
                         days(30)
                     )
-            ).to.be.revertedWith("Unauthorized()");
+            ).to.be.revertedWith("LockTimeOutOfBounds(2592000, 7776000, 94608000)");
         });
         it("Deposit for 4 years should revert", async () => {
             await expect(
@@ -422,7 +422,7 @@ describe("veNewo tests", async function () {
                         address(addr1),
                         years(4)
                     )
-            ).to.be.revertedWith("Unauthorized()");
+            ).to.be.revertedWith("LockTimeOutOfBounds(126144000, 7776000, 94608000)");
         });
     });
     
