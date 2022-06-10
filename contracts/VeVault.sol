@@ -383,10 +383,13 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * @notice Mints shares Vault shares to receiver by depositing exactly 
      * amount of underlying tokens.
      * Only allow deposits for caller equals receiver.
-     * When a relock is performed, the furtherest date
-     * in the future is the one selected.
-     * The multiplier is applied to the total amount
-     * of assets deposited since all value will be locked.
+     * Relocks are only allowed if new unlock date is futherest
+     * in the future. If user tries to reduce its lock period
+     * the transaction will revert.
+     * The multiplier applied is always the one from the last
+     * deposit. And it's applied to the total amount deposited
+     * so far. It's not possible to have 2 unclock dates for 
+     * the same address.
      * @dev Compliant to the ERC4626 interface.
      * @param assets: amount of underlying tokens
      * @param receiver: address which the veTokens will be granted to
@@ -420,10 +423,13 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * @notice Mint shares for receiver by depositing
      * the necessary amount of underlying tokens.
      * Only allow deposits for caller equals receiver.
-     * When a relock is performed, the furtherest date
-     * in the future is the one selected.
-     * The multiplier is applied to the total amount
-     * of assets deposited since all value will be locked.
+     * Relocks are only allowed if new unlock date is futherest
+     * in the future. If user tries to reduce its lock period
+     * the transaction will revert.
+     * The multiplier applied is always the one from the last
+     * deposit. And it's applied to the total amount deposited
+     * so far. It's not possible to have 2 unclock dates for 
+     * the same address.
      * @dev Not compliant to the ERC4626 interface
      * since it doesn't mint the exactly amount
      * of shares asked. The shares amount stays
