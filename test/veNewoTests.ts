@@ -610,8 +610,8 @@ describe("veNewo tests", async function () {
     testLock(years(3), days(30), 100);
     testKickUser(days(90), days(30), 100);
     testKickUser(years(3), days(30), 100);
-    testLockAndRelock(years(1), days(90), days(30), years(1), 50, 50);
-    testLockAndRelock(years(2), days(90), days(6 * 30), days(30), 57, 13);
+    testLockAndRelock(years(1), days(90), days(280), years(1), 50, 50);
+    testLockAndRelock(years(2), days(90), days(700), days(30), 57, 13);
     testLockAndRelock(days(90), days(90), days(88), days(90), 29, 157);
 
     /**
