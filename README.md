@@ -22,7 +22,8 @@ account as the basis for the rewards accrued to the account.
 
 In general the token holder has to notify each reward contract of the
 token holder's veNEWO locked balance by calling notifyDeposit() on 
-each rewards contract. The UX can be simplified by using a proxy contract
+each rewards contract. In the future, when the number of rewards vaults grows large; 
+the UX can be simplified by using a proxy contract
 and locking tokens in the veNEWO.sol and calling notifyDeposit() on all known rewards contracts.
 
 There is a variant of the rewards distribution contract for LP rewards
