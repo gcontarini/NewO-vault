@@ -96,6 +96,11 @@ An address can re-lock its locked tokens anytime. Re-locking causes the amount o
 to be recalculated, and the new unlock time must be at the same time or in the future 
 when compared to the exisitng unlock time for the same address.
 
+_Note: When re-locking only the current time and new lock period are taken into account 
+(consideration is not given for previous lock time). For example, a token holder locks their tokens for 1 year,
+getting a multiplier of 1.3x on their locked NEWO. Let's say 364 days pass, and the token holder's multiplier remains at 1.3x that whole time. 
+On day 364 the token holder decides to re-lock all their NEWO for 3 months. Then, this token holder's new unlock date will be 3 months from the time of re-locking, and their multiplier will be 1x_
+
 The re-locked address needs to notify reward vaults of the new unlock time and veNEWO amount.
 
 
