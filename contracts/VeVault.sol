@@ -15,6 +15,9 @@ error InsufficientBalance(uint256 available, uint256 required);
 error NotWhitelisted();
 error FundsInGracePeriod();
 error FundsNotUnlocked();
+error InvalidSetting();
+error LockTimeOutOfBounds(uint256 lockTime, uint256 lockMin, uint256 lockMax);
+error LockTimeLessThanCurrent(uint256 currentUnlockDate, uint256 newUnlockDate);
 
 /** 
  * @title Implements voting escrow tokens with time based locking system
@@ -380,10 +383,13 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * @notice Mints shares Vault shares to receiver by depositing exactly 
      * amount of underlying tokens.
      * Only allow deposits for caller equals receiver.
-     * When a relock is performed, the furtherest date
-     * in the future is the one selected.
-     * The multiplier is applied to the total amount
-     * of assets deposited since all value will be locked.
+     * Relocks are only allowed if new unlock date is futherest
+     * in the future. If user tries to reduce its lock period
+     * the transaction will revert.
+     * The multiplier applied is always the one from the last
+     * deposit. And it's applied to the total amount deposited
+     * so far. It's not possible to have 2 unclock dates for 
+     * the same address.
      * @dev Compliant to the ERC4626 interface.
      * @param assets: amount of underlying tokens
      * @param receiver: address which the veTokens will be granted to
@@ -417,10 +423,13 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * @notice Mint shares for receiver by depositing
      * the necessary amount of underlying tokens.
      * Only allow deposits for caller equals receiver.
-     * When a relock is performed, the furtherest date
-     * in the future is the one selected.
-     * The multiplier is applied to the total amount
-     * of assets deposited since all value will be locked.
+     * Relocks are only allowed if new unlock date is futherest
+     * in the future. If user tries to reduce its lock period
+     * the transaction will revert.
+     * The multiplier applied is always the one from the last
+     * deposit. And it's applied to the total amount deposited
+     * so far. It's not possible to have 2 unclock dates for 
+     * the same address.
      * @dev Not compliant to the ERC4626 interface
      * since it doesn't mint the exactly amount
      * of shares asked. The shares amount stays
@@ -566,6 +575,8 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * @notice Owner can change state variabes which controls the penalty system
      */
     function changeEpoch(uint256 newEpoch) external onlyOwner {
+        if (newEpoch == 0)
+            revert InvalidSetting();
         _lockTimer.epoch = newEpoch;
     }
     
@@ -573,6 +584,8 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * @notice Owner can change state variabes which controls the penalty system
      */
     function changeMinPenalty(uint256 newMinPenalty) external onlyOwner {
+        if (newMinPenalty >= _penalty.maxPerc)
+            revert InvalidSetting();
         _penalty.minPerc = newMinPenalty;
     }
     
@@ -580,6 +593,8 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
      * @notice Owner can change state variabes which controls the penalty system
      */
     function changeMaxPenalty(uint256 newMaxPenalty) external onlyOwner {
+        if (newMaxPenalty <= _penalty.minPerc)
+            revert InvalidSetting();
         _penalty.maxPerc = newMaxPenalty;
     }
     
@@ -640,26 +655,30 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
         ) internal 
         updateShares(receiver, lockTime)
         returns (uint256 shares) {
-        if (assets <= 0 || msg.sender != receiver
-            || lockTime < _lockTimer.min || lockTime > _lockTimer.max)
+        if (msg.sender != receiver)
             revert Unauthorized();
+        if (lockTime < _lockTimer.min || lockTime > _lockTimer.max)
+            revert LockTimeOutOfBounds(lockTime, _lockTimer.min, _lockTimer.max);
 
-        // Update lockTime
-        // Always choose the date futher in the future
+        // Cannot lock more funds less than the current
         uint256 unlockTime = block.timestamp + lockTime;
-        if (_unlockDate[receiver] < unlockTime)
-            _unlockDate[receiver] = unlockTime;
-        
-        // Update assets
-        _totalManagedAssets += assets;
-        _assetBalances[receiver] += assets;
-        IERC20(_assetTokenAddress).safeTransferFrom(receiver, address(this), assets);
+        if (unlockTime < _unlockDate[receiver])
+            revert LockTimeLessThanCurrent(_unlockDate[receiver], unlockTime);
+        _unlockDate[receiver] = unlockTime;
 
         // The end balance of shares can be
         // lower than the amount returned by
         // this function
         shares = convertToShares(assets, lockTime);
-        emit Deposit(msg.sender, receiver, assets, shares);
+        if (assets == 0) {
+            emit Relock(msg.sender, receiver, assets, _unlockDate[receiver]);
+        } else {
+            // Update assets
+            _totalManagedAssets += assets;
+            _assetBalances[receiver] += assets;
+            IERC20(_assetTokenAddress).safeTransferFrom(receiver, address(this), assets);
+            emit Deposit(msg.sender, receiver, assets, shares);
+        }
         return shares;
     }
     
@@ -777,6 +796,7 @@ abstract contract VeVault is ReentrancyGuard, Pausable, IERC4626 {
     
     /* ========== EVENTS ========== */
 
+    event Relock(address indexed caller, address indexed receiver, uint256 assets, uint256 newUnlockDate);
     event PayPenalty(address indexed caller, address indexed owner, uint256 assets);
     event Burn(address indexed user, uint256 shares);
     event Mint(address indexed user, uint256 shares);

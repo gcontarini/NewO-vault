@@ -400,7 +400,7 @@ describe("veNewo tests", async function () {
                         address(addr1),
                         days(0)
                     )
-            ).to.be.revertedWith("Unauthorized()");
+            ).to.be.revertedWith("LockTimeOutOfBounds(0, 7776000, 94608000)");
         });
         it("Deposit for 30 days should revert", async () => {
             await expect(
@@ -411,7 +411,7 @@ describe("veNewo tests", async function () {
                         address(addr1),
                         days(30)
                     )
-            ).to.be.revertedWith("Unauthorized()");
+            ).to.be.revertedWith("LockTimeOutOfBounds(2592000, 7776000, 94608000)");
         });
         it("Deposit for 4 years should revert", async () => {
             await expect(
@@ -422,25 +422,10 @@ describe("veNewo tests", async function () {
                         address(addr1),
                         years(4)
                     )
-            ).to.be.revertedWith("Unauthorized()");
+            ).to.be.revertedWith("LockTimeOutOfBounds(126144000, 7776000, 94608000)");
         });
     });
     
-    describe("Deposit 0 newo for valid time", () => {
-        before(initialize);
-        it("Deposit of 0 Newo should revert", async () => {
-            await expect(
-                veNewo
-                    .connect(addr1)
-                    ["deposit(uint256,address,uint256)"](
-                        parseNewo(0),
-                        address(addr1),
-                        years(1)
-                    )
-            ).to.be.revertedWith("Unauthorized()");
-        });
-    });
-
     describe("Testing mint and redeem functions", () => {
         before(initialize);
         it("Depositor must have the amount of shares inside the bounderies", async () => {
@@ -578,6 +563,45 @@ describe("veNewo tests", async function () {
         })
 
     })
+    
+    describe("Testing relock", () => {
+        before(initialize);
+        let unlockDate: number;
+        const amount = 100;
+        
+        it("Relock for longer period", async () => {
+            await userDeposit(days(90), parseNewo(amount));
+            
+            // time travel
+            await timeTravel(60);
+            // Relock
+            await userDeposit(years(1), parseNewo(0));
+            
+            // Get time when relock happened 
+            const blockNumBefore = await ethers.provider.getBlockNumber();
+            const blockBefore = await ethers.provider.getBlock(blockNumBefore);
+            const baseDate = blockBefore.timestamp;
+            
+            unlockDate = baseDate + years(1);
+            expect(
+                await veNewo.unlockDate(await addr1.getAddress())
+                ).to.equal(unlockDate);
+        });
+        it("Relock for a shorter period is not allowed", async () => {
+            // await userDeposit(days(90), parseNewo(0));
+            await expect(
+                veNewo.connect(addr1)
+                ["deposit(uint256,address,uint256)"](
+                    parseNewo(amount),
+                    await addr1.getAddress(),
+                    days(90)
+                )).to.be.revertedWith("LockTimeLessThanCurrent(1682657560, 1658897561)");
+            
+            // expect(
+            //     await veNewo.unlockDate(await addr1.getAddress())
+            //     ).to.equal(unlockDate);
+        });
+    })
 
     // Try lock, withdraw and stake again
     // Try mint function, and redeem
@@ -586,8 +610,8 @@ describe("veNewo tests", async function () {
     testLock(years(3), days(30), 100);
     testKickUser(days(90), days(30), 100);
     testKickUser(years(3), days(30), 100);
-    testLockAndRelock(years(1), days(90), days(30), years(1), 50, 50);
-    testLockAndRelock(years(2), days(90), days(6 * 30), days(30), 57, 13);
+    testLockAndRelock(years(1), days(90), days(280), years(1), 50, 50);
+    testLockAndRelock(years(2), days(90), days(700), days(30), 57, 13);
     testLockAndRelock(days(90), days(90), days(88), days(90), 29, 157);
 
     /**
