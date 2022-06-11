@@ -587,12 +587,19 @@ describe("veNewo tests", async function () {
                 await veNewo.unlockDate(await addr1.getAddress())
                 ).to.equal(unlockDate);
         });
-        it("Relock for shorter period should keep the furthest date", async () => {
-            await userDeposit(days(90), parseNewo(0));
+        it("Relock for a shorter period is not allowed", async () => {
+            // await userDeposit(days(90), parseNewo(0));
+            await expect(
+                veNewo.connect(addr1)
+                ["deposit(uint256,address,uint256)"](
+                    parseNewo(amount),
+                    await addr1.getAddress(),
+                    days(90)
+                )).to.be.revertedWith("LockTimeLessThanCurrent(1682657560, 1658897561)");
             
-            expect(
-                await veNewo.unlockDate(await addr1.getAddress())
-                ).to.equal(unlockDate);
+            // expect(
+            //     await veNewo.unlockDate(await addr1.getAddress())
+            //     ).to.equal(unlockDate);
         });
     })
 
