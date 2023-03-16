@@ -8,7 +8,7 @@ favor of a system that rewards conviction.
 
 ![veNEWO System](./img/veNEWO_system_diagram.001.png "veNEWO system")
 
-The veNEWO system allows a token holder to lock up their ERC20 tokens for a 
+The veNEWO system allows a token holder to lock up their ERC20 tokens for a
 time period, and the token holder recieves a bonus amount of veNEWO depending
 on the number of tokens and the duration for which they are locked.
 
@@ -17,19 +17,19 @@ reward distribution token contracts. This contract (veVault)
 allows users to lock their ERC20 for a period of time. They receive
 veTokens for doing so, which are not transferable.
 
-Any number of reward distrubion contracts (Rewards.sol) can use the veNEWO held by an 
+Any number of reward distrubion contracts (Rewards.sol) can use the veNEWO held by an
 account as the basis for the rewards accrued to the account.
 
 In general the token holder has to notify each reward contract of the
-token holder's veNEWO locked balance by calling notifyDeposit() on 
-each rewards contract. In the future, when the number of rewards vaults grows large; 
+token holder's veNEWO locked balance by calling notifyDeposit() on
+each rewards contract. In the future, when the number of rewards vaults grows large;
 the UX can be simplified by using a proxy contract
 and locking tokens in the veNEWO.sol and calling notifyDeposit() on all known rewards contracts.
 
 There is a variant of the rewards distribution contract for LP rewards
-(LpRewards.sol) which implements special logic (see below). 
-If an LP token staker has a matching amount of locked NEWO in the veNEWO 
-vault to match the NEWO in the staked LP; the LpRewards vault will boost 
+(LpRewards.sol) which implements special logic (see below).
+If an LP token staker has a matching amount of locked NEWO in the veNEWO
+vault to match the NEWO in the staked LP; the LpRewards vault will boost
 the LP rewards by the ve Multiplier.
 
 The contracts are discussed in further detail, below.
@@ -40,7 +40,7 @@ The contracts are discussed in further detail, below.
 
 veNEWO offers a bonus depending on how long an individual account decides to lock their tokens for.
 
-The account locking tokens becomes a veNEWO Holder with their amount of veNEWO determined by the amount of veNEWO locked and the locking time period. 
+The account locking tokens becomes a veNEWO Holder with their amount of veNEWO determined by the amount of veNEWO locked and the locking time period.
 
 The minimum time to lock is 3 months (90 days) to earn a 1.0x multiplier.
 
@@ -78,8 +78,8 @@ For example, the transfer function reverts if called because these tokens are me
 ## Constant veNEWO level
 
 Rather than have ve rewards decay over time like some other ve reward models,
-causing participants to have to re-lock occasionally in order to maintain 
-rewards (and burn transaction fees, accordingly) we instead encourage 
+causing participants to have to re-lock occasionally in order to maintain
+rewards (and burn transaction fees, accordingly) we instead encourage
 longer locking periods with super-linear veNEWO rewards (see figure).
 
 Therefore, the amount of veNEWO remains constant until it is unstaked.
@@ -87,18 +87,55 @@ Therefore, the amount of veNEWO remains constant until it is unstaked.
 ## Forced Un-staking
 
 Following a configurable grace period, anyone can forcibly unstake an account if the
-locking period + grace period have elapsed. The account forcing the unstaking receives 
+locking period + grace period have elapsed. The account forcing the unstaking receives
 some of the forcibly unstaked account's unclaimed rewards (another configurable parameter).
+
+The system sets a minimum percentage to be received just after the grace period by the kicker. After this, each epoch an amount of percentage is summed to this percentage until a max penalty is reached. All parameters of this system can be changed, minimum, maximum, the value of each increase, the grace period and how long is each epoch.
+
+The values can be set throught the following interface:
+```
+function changeGracePeriod(uint256 newGracePeriod)
+function changeEpoch(uint256 newEpoch)
+function changeMinPenalty(uint256 newMinPenalty)
+function changeMaxPenalty(uint256 newMaxPenalty)
+function changeStepPenalty(uint256 newStepPenalty)
+```
+
+Those values can be consulted throught the following interface:
+```
+function gracePeriod()
+function penaltyPercentage()
+function maxPenaltyPercentage()
+function minPenaltyPercentage()
+```
+
+To force unstaking an address the following interface has to be used:
+```
+function withdraw(uint256 assets, address receiver, address owner)
+```
+
+Owner is the address being unstaked. To succefully unstake someone, the receiver must the same address as the owner. Of course, the transaction sender is not the same address as the owner.
+
+To figure out the max value of assets to be used in unstaking someone call the following function:
+```
+function assetBalanceOf(address account)
+```
+
+In resume:
+```
+address owner = <wallet address>;
+veNewo.withdraw(veNewo.assetBalanceOf(owner), owner, owner);
+```
 
 ## Re-locking
 
 An address can re-lock its locked tokens anytime. Re-locking causes the amount of veNEWO
-to be recalculated, and the new unlock time must be at the same time or in the future 
+to be recalculated, and the new unlock time must be at the same time or in the future
 when compared to the exisitng unlock time for the same address.
 
-_Note: When re-locking only the current time and new lock period are taken into account 
+_Note: When re-locking only the current time and new lock period are taken into account
 (consideration is not given for previous lock time). For example, a token holder locks their tokens for 1 year,
-getting a multiplier of 1.3x on their locked NEWO. Let's say 364 days pass, and the token holder's multiplier remains at 1.3x that whole time. 
+getting a multiplier of 1.3x on their locked NEWO. Let's say 364 days pass, and the token holder's multiplier remains at 1.3x that whole time.
 On day 364 the token holder decides to re-lock all their NEWO for 3 months. Then, this token holder's new unlock date will be 3 months from the time of re-locking, and their multiplier will be 1x_
 
 The re-locked address needs to notify reward vaults of the new unlock time and veNEWO amount.
@@ -111,7 +148,7 @@ by [synthetix](https://github.com/Synthetixio/synthetix) and by other
 veTokens implementations like from Curve.
 
 # Dependencies
-requires Hardhat to be installed in order to run the test suite found in /test; 
+requires Hardhat to be installed in order to run the test suite found in /test;
 Installation instructions are found below.
 
 # Instructions to run
@@ -128,7 +165,7 @@ Install npm dependecies
 npm install
 ```
 
-Compile the contracts 
+Compile the contracts
 ```shell
 npx hardhat compile
 ```
