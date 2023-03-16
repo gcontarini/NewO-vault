@@ -14,6 +14,7 @@ error RewardTooHigh();
 error RewardPeriodNotComplete(uint256 finish);
 error NotWhitelisted();
 error InsufficientBalance(uint256 available, uint256 required);
+error NotTrustedProxy();
 
 /** 
  * @title Implements a reward system which grant rewards based on veToken balance 
@@ -39,6 +40,7 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
     uint256 public rewardsDuration = 7 days; // the rewards inside the contract are gone be distributed during this period
     uint256 public lastUpdateTime;           // when the reward period started
     uint256 public rewardPerTokenStored;     // amounts of reward per staked token
+    address[] public trustedProxies;         // whitelisted proxies allowed to call the contract functions
 
     mapping(address => Account) public accounts;
     
@@ -249,6 +251,32 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
         emit RecoveredNFT(tokenAddress, tokenId);
     }
 
+    /**
+     * @notice Add a trusted proxy
+     */
+    function addTrustedProxy(address trustedAddress) external onlyOwner {
+        trustedProxies.push(trustedAddress);
+    }
+
+    /**
+     * @notice Remove a trusted proxy
+     */
+    function removeTrustedProxy(address toRemove) external onlyOwner {
+        bool found;
+        for(uint i = 0; i < trustedProxies.length; i++)
+        {
+            if (trustedProxies[i] == toRemove)
+            {
+                trustedProxies[i] = trustedProxies[trustedProxies.length - 1];
+                trustedProxies.pop();
+                found = true;
+                break;
+            }
+        }
+        if (found == false) revert NotTrustedProxy();
+    }
+
+
     /* ========== MODIFIERS ========== */
 
     /**
@@ -266,6 +294,22 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
             accounts[owner].rewards = earned(owner);
             accounts[owner].rewardPerTokenPaid = rewardPerToken(address(0));
         }
+        _;
+    }
+
+    /**
+     * @dev Make sure only trusted proxies can call the
+     * contract functions.
+     */
+    modifier onlyTrustedProxies(address caller) {
+        bool isTrusted;
+        for(uint i = 0; i < trustedProxies.length; i++) {
+            if (caller == trustedProxies[i]) {
+                isTrusted = true;
+                break;
+            }
+        }
+        if (isTrusted == false) revert NotTrustedProxy();
         _;
     }
 
