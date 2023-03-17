@@ -4,12 +4,18 @@ pragma solidity ^0.8.13;
 import {Owned} from "./Owned.sol";
 import {IRewards} from "./interfaces/IRewards.sol";
 
+/**
+ * @title RewardsController
+ * @notice This contract is used to manage the rewards contracts
+ * @dev This contract is owned
+ */
+
 contract RewardsController is Owned {
     // Sum to 32 bytes
     struct RewardsContract {
         address rewardsContractAddress;
         bool isAuth;
-        uint88 index;
+        uint index;
     }
 
     /* ========== STATE VARIABLES ========== */
@@ -61,7 +67,7 @@ contract RewardsController is Owned {
         }
 
         // Get old index and set isAuth to false
-        uint88 index = rewardsContractsAuth[_rewardsContractAddress].index;
+        uint index = rewardsContractsAuth[_rewardsContractAddress].index;
         rewardsContractsAuth[_rewardsContractAddress].isAuth = false;
 
         // Get last contract address
@@ -84,7 +90,9 @@ contract RewardsController is Owned {
      * @notice Get all rewards from all rewards contracts
      * @dev This must never revert
      */
-    function getAllRewards(string calldata declaration) public onlyConfirmedTermsOfUse(declaration) {
+    function getAllRewards(
+        string calldata declaration
+    ) public onlyConfirmedTermsOfUse(declaration) {
         for (uint256 i = 0; i < rewardsContracts.length; ) {
             IRewards rewardsContract = IRewards(rewardsContracts[i]);
             rewardsContract.getRewards(msg.sender);
@@ -100,7 +108,9 @@ contract RewardsController is Owned {
      * @dev This function should be called after a deposit has been made
      * @dev This must never revert
      */
-    function notifyAllDeposit(string calldata declaration) public onlyConfirmedTermsOfUse(declaration) {
+    function notifyAllDeposit(
+        string calldata declaration
+    ) public onlyConfirmedTermsOfUse(declaration) {
         for (uint256 i = 0; i < rewardsContracts.length; ) {
             IRewards rewardsContract = IRewards(rewardsContracts[i]);
             rewardsContract.notifyDeposit(msg.sender);
@@ -116,17 +126,21 @@ contract RewardsController is Owned {
     /* ========== MODIFIERS ========== */
 
     /**
-     * @notice Check if user declaration is matching
+     * @notice Check if the user has confirmed the terms of use
+     * @param declaration The declaration of the user
+     * @dev The declaration must be exactly the same as the one in the Terms of Use
      */
     modifier onlyConfirmedTermsOfUse(string memory declaration) {
-        require(
-            keccak256(abi.encodePacked(declaration)) ==
-                keccak256(
-                    abi.encodePacked(
-                        "I have read and agree to the Terms and Conditions https://neworder.network/legal"
-                    )
-                ),
-            );
+        if (
+            keccak256(abi.encodePacked(declaration)) !=
+            keccak256(
+                abi.encodePacked(
+                    "I have read and agree to the Terms and Conditions https://neworder.network/legal"
+                )
+            )
+        ) {
+            revert WrongTermsOfUse();
+        }
         _;
     }
 
@@ -139,4 +153,5 @@ contract RewardsController is Owned {
 
     error RewardsContractNotFound();
     error RewardsContractAlreadyExists();
+    error WrongTermsOfUse();
 }
