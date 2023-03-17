@@ -4,6 +4,10 @@ pragma solidity ^0.8.13;
 // Inheritance
 import "./Owned.sol";
 
+// Custom errors
+error AlreadyTrustedProxy();
+error NotTrustedProxy();
+
 abstract contract Trustable is Owned{
 	mapping (address => bool) public trustedProxies;	// trusted proxies allowed to call the contract functions.
 
@@ -12,23 +16,23 @@ abstract contract Trustable is Owned{
      * defined in the contract that inherits from Trustable.
      */
     modifier onlyTrustedProxies(address caller) {
-        require(trustedProxies[caller], "Caller is not a trusted proxy.");
-        _;
+      if (!trustedProxies[caller]) revert NotTrustedProxy();
+      _;
     }
 
     /**
      * @notice Add a trusted proxy.
      */
     function addTrustedProxy(address trustedAddress) external onlyOwner {
-		require(!trustedProxies[trustedAddress], "Proxy is already trusted.");
-		trustedProxies[trustedAddress] = true;
+      if (trustedProxies[trustedAddress]) revert AlreadyTrustedProxy();
+		  trustedProxies[trustedAddress] = true;
     }
 
     /**
      * @notice Remove a trusted proxy.
      */
     function removeTrustedProxy(address toRemove) external onlyOwner {
-		require(trustedProxies[toRemove], "Proxy is not trusted.");
-		trustedProxies[toRemove] = false;
+      if (!trustedProxies[toRemove]) revert NotTrustedProxy();
+		  trustedProxies[toRemove] = false;
     }
 }

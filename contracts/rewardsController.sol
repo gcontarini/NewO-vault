@@ -11,10 +11,21 @@ contract RewardsController is Owned {
         uint88 index;
     }
 
+    /* ========== STATE VARIABLES ========== */
+
     address[] public rewardsContracts;
     mapping(address => RewardsContract) public rewardsContractsAuth;
 
-    constructor() {}
+	mapping (address => bool)[] public signedConditions;
+	uint public indexSigned = 0;
+
+    /* ========== CONSTRUCTOR ========== */
+
+    constructor() {
+        signedConditions.push();
+    }
+
+    /* ========== FUNCTIONS ========== */
 
     /**
      * @notice Add a new rewards contract to the list of rewards contracts
@@ -71,8 +82,27 @@ contract RewardsController is Owned {
         emit RewardsContractRemoved(_rewardsContractAddress);
     }
 
-    // Not sure about this implementation yet
-    // function signMessage() public {}
+	/**
+    * @notice Sign the conditions
+    */
+   	function signConditions() public {
+		if (signedConditions[indexSigned][msg.sender]) revert ConditionsAlreadySigned();
+		signedConditions[indexSigned][msg.sender] = true;
+		emit ConditionsSigned(msg.sender);
+	}
+
+	/**
+    * @notice Reset the sign conditions by creating a new mapping,
+	* points to the new mapping by incrementing indexSigned.
+    */
+   	function updateSignConditions() public onlyOwner{
+		signedConditions.push();
+		indexSigned++;
+		emit ConditionsUpdated();
+	}
+
+
+    /* ========== IRewards ========== */
 
     /**
      * @notice Get all rewards from all rewards contracts
@@ -109,9 +139,27 @@ contract RewardsController is Owned {
 
     // LP contracts also have deposit. We need to think about it.
 
+    /* ========== MODIFIERS ========== */
+	
+    /**
+    * @notice Check if conditions are signed
+    */
+	modifier onlySigned() {
+		if (!signedConditions[indexSigned][msg.sender]) revert ConditionsNotSigned();
+		_;
+	}
+
+    /* ========== EVENTS ========== */
+
     event RewardsContractAdded(address indexed rewardsContractAddress);
     event RewardsContractRemoved(address indexed rewardsContractAddress);
+	event ConditionsSigned(address indexed user);
+	event ConditionsUpdated();
+
+    /* ========== ERRORS ========== */
 
     error RewardsContractNotFound();
     error RewardsContractAlreadyExists();
+	error ConditionsAlreadySigned();
+	error ConditionsNotSigned();
 }
