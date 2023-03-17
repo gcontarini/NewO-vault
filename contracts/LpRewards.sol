@@ -5,8 +5,10 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
-import "./Pausable.sol";
+// Inheritance
 import "./RewardsDistributionRecipient.sol";
+import "./Pausable.sol";
+import "./Trustable.sol";
 
 import "./interfaces/IUniswapV2Pair.sol";
 import "./interfaces/IVeVault.sol";
@@ -27,7 +29,7 @@ error InsufficientBalance();
  * @dev This implementation tries to follow the ERC4626 standard
  * Implement a new constructor to deploy this contract 
  */
-abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRecipient, IERC4626 {
+abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRecipient, IERC4626, Trustable {
     using SafeERC20 for IERC20;
 
     struct Account {
