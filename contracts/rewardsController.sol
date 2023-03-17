@@ -17,14 +17,9 @@ contract RewardsController is Owned {
     address[] public rewardsContracts;
     mapping(address => RewardsContract) public rewardsContractsAuth;
 
-    mapping(address => bool)[] public signedConditions;
-    uint public indexSigned = 0;
-
     /* ========== CONSTRUCTOR ========== */
 
-    constructor(address owner_) Owned(owner_) {
-        signedConditions.push();
-    }
+    constructor(address owner_) Owned(owner_) {}
 
     /* ========== FUNCTIONS ========== */
 
@@ -83,35 +78,13 @@ contract RewardsController is Owned {
         emit RewardsContractRemoved(_rewardsContractAddress);
     }
 
-    /**
-     * @notice Sign the conditions
-     */
-    function signConditions() public {
-        if (signedConditions[indexSigned][msg.sender])
-            revert ConditionsAlreadySigned();
-        signedConditions[indexSigned][msg.sender] = true;
-
-        emit ConditionsSigned(msg.sender);
-    }
-
-    /**
-     * @notice Reset the sign conditions by creating a new mapping,
-     * points to the new mapping by incrementing indexSigned.
-     */
-    function updateSignConditions() public onlyOwner {
-        signedConditions.push();
-        indexSigned++;
-
-        emit ConditionsUpdated();
-    }
-
     /* ========== IRewards ========== */
 
     /**
      * @notice Get all rewards from all rewards contracts
      * @dev This must never revert
      */
-    function getAllRewards() public onlySigned {
+    function getAllRewards(string calldata declaration) public onlyConfirmedTermsOfUse(declaration) {
         for (uint256 i = 0; i < rewardsContracts.length; ) {
             IRewards rewardsContract = IRewards(rewardsContracts[i]);
             rewardsContract.getRewards(msg.sender);
@@ -127,7 +100,7 @@ contract RewardsController is Owned {
      * @dev This function should be called after a deposit has been made
      * @dev This must never revert
      */
-    function notifyAllDeposit() public onlySigned {
+    function notifyAllDeposit(string calldata declaration) public onlyConfirmedTermsOfUse(declaration) {
         for (uint256 i = 0; i < rewardsContracts.length; ) {
             IRewards rewardsContract = IRewards(rewardsContracts[i]);
             rewardsContract.notifyDeposit(msg.sender);
@@ -143,11 +116,17 @@ contract RewardsController is Owned {
     /* ========== MODIFIERS ========== */
 
     /**
-     * @notice Check if conditions are signed
+     * @notice Check if user declaration is matching
      */
-    modifier onlySigned() {
-        if (!signedConditions[indexSigned][msg.sender])
-            revert ConditionsNotSigned();
+    modifier onlyConfirmedTermsOfUse(string memory declaration) {
+        require(
+            keccak256(abi.encodePacked(declaration)) ==
+                keccak256(
+                    abi.encodePacked(
+                        "I have read and agree to the Terms and Conditions https://neworder.network/legal"
+                    )
+                ),
+            );
         _;
     }
 
@@ -155,13 +134,9 @@ contract RewardsController is Owned {
 
     event RewardsContractAdded(address indexed rewardsContractAddress);
     event RewardsContractRemoved(address indexed rewardsContractAddress);
-    event ConditionsSigned(address indexed user);
-    event ConditionsUpdated();
 
     /* ========== ERRORS ========== */
 
     error RewardsContractNotFound();
     error RewardsContractAlreadyExists();
-    error ConditionsAlreadySigned();
-    error ConditionsNotSigned();
 }
