@@ -114,7 +114,7 @@ To force unstaking an address the following interface has to be used:
 function withdraw(uint256 assets, address receiver, address owner)
 ```
 
-Owner is the address being unstaked. To succefully unstake someone, the receiver must the same address as the owner. Of course, the transaction sender is not the same address as the owner.
+Owner is the address being unstaked. To succefully unstake someone, the receiver must be the same address as the owner. Of course, the transaction sender is not the same address as the owner.
 
 To figure out the max value of assets to be used in unstaking someone call the following function:
 ```
