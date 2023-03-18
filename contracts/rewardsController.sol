@@ -12,7 +12,7 @@ import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
  * @dev This contract is owned
  */
 contract RewardsController is Owned {
-    // Sum to 32 bytes
+    // Sum to 32 bytes -> one slot (gas savings $$$)
     struct RewardsContract {
         bool isAuth;
         uint248 index;
@@ -88,9 +88,8 @@ contract RewardsController is Owned {
         // Get old index and set isAuth to false
         uint248 index = rewardsContractsAuth[_rewardsContractAddress].index;
 
-        // Set the rewards contract address to address(0), update the isAuth flag to false and set index to 0
+        // Update the isAuth flag to false
         rewardsContractsAuth[_rewardsContractAddress].isAuth = false;
-        rewardsContractsAuth[_rewardsContractAddress].index = 0;
 
         // Get last contract address
         address lastRewardsContractAddress = rewardsContracts[
