@@ -8,16 +8,16 @@ import "./Owned.sol";
 error AlreadyTrustedController();
 error NotTrustedController();
 
-abstract contract Trustable is Owned{
-	mapping (address => bool) public trustedControllers;	// trusted controllers allowed to call the contract functions.
+abstract contract Trustable is Owned {
+    mapping(address => bool) public trustedControllers; // trusted controllers allowed to call the contract functions.
 
     /**
      * @dev Only trusted controllers can call the functions
      * defined in the contract that inherits from Trustable.
      */
     modifier onlyTrustedControllers() {
-      if (!trustedControllers[msg.sender]) revert NotTrustedController();
-      _;
+        if (!trustedControllers[msg.sender]) revert NotTrustedController();
+        _;
     }
 
     /**
@@ -25,8 +25,9 @@ abstract contract Trustable is Owned{
      * @param trustedAddress The address of a trusted controller to add.
      */
     function addTrustedController(address trustedAddress) external onlyOwner {
-      if (trustedControllers[trustedAddress]) revert AlreadyTrustedController();
-		  trustedControllers[trustedAddress] = true;
+        if (trustedControllers[trustedAddress])
+            revert AlreadyTrustedController();
+        trustedControllers[trustedAddress] = true;
     }
 
     /**
@@ -34,7 +35,7 @@ abstract contract Trustable is Owned{
      * @param toRemove The address of a trusted controller to remove.
      */
     function removeTrustedController(address toRemove) external onlyOwner {
-      if (!trustedControllers[toRemove]) revert NotTrustedController();
-		  trustedControllers[toRemove] = false;
+        if (!trustedControllers[toRemove]) revert NotTrustedController();
+        trustedControllers[toRemove] = false;
     }
 }
