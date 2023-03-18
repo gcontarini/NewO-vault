@@ -151,8 +151,12 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable, Tru
      * contract will account user's rewards.
      * @return account full information
      */
-    function notifyDeposit() public updateReward(msg.sender) returns(Account memory) {
-        emit NotifyDeposit(msg.sender, accounts[owner].rewardPerTokenPaid, accounts[owner].dueDate);
+    function notifyDeposit(address user)
+        public
+        updateReward(user)
+        onlyTrustedControllers
+        returns(Account memory) {
+        emit NotifyDeposit(user, accounts[owner].rewardPerTokenPaid, accounts[owner].dueDate);
         return accounts[owner];
     }
 
@@ -161,13 +165,16 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable, Tru
      * @dev In case of no rewards claimable
      * just update the user status and do nothing.
      */
-    function getReward() public updateReward(msg.sender) {
-        uint256 reward = accounts[msg.sender].rewards;
+    function getReward(address user)
+        public
+        updateReward(user)
+        onlyTrustedControllers {
+        uint256 reward = accounts[user].rewards;
         if (reward <= 0) return;
         
-        accounts[msg.sender].rewards = 0;
-        IERC20(rewardsToken).safeTransfer(msg.sender, reward);
-        emit RewardPaid(msg.sender, reward);
+        accounts[user].rewards = 0;
+        IERC20(rewardsToken).safeTransfer(user, reward);
+        emit RewardPaid(user, reward);
     }
 
     /* ========== RESTRICTED FUNCTIONS ========== */

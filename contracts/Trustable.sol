@@ -5,34 +5,36 @@ pragma solidity ^0.8.13;
 import "./Owned.sol";
 
 // Custom errors
-error AlreadyTrustedProxy();
-error NotTrustedProxy();
+error AlreadyTrustedController();
+error NotTrustedController();
 
 abstract contract Trustable is Owned{
-	mapping (address => bool) public trustedProxies;	// trusted proxies allowed to call the contract functions.
+	mapping (address => bool) public trustedControllers;	// trusted controllers allowed to call the contract functions.
 
     /**
-     * @dev Only trusted proxies can call the functions
+     * @dev Only trusted controllers can call the functions
      * defined in the contract that inherits from Trustable.
      */
-    modifier onlyTrustedProxies(address caller) {
-      if (!trustedProxies[caller]) revert NotTrustedProxy();
+    modifier onlyTrustedControllers() {
+      if (!trustedControllers[msg.sender]) revert NotTrustedController();
       _;
     }
 
     /**
-     * @notice Add a trusted proxy.
+     * @notice Add a trusted controller.
+     * @param trustedAddress The address of a trusted controller to add.
      */
-    function addTrustedProxy(address trustedAddress) external onlyOwner {
-      if (trustedProxies[trustedAddress]) revert AlreadyTrustedProxy();
-		  trustedProxies[trustedAddress] = true;
+    function addTrustedController(address trustedAddress) external onlyOwner {
+      if (trustedControllers[trustedAddress]) revert AlreadyTrustedController();
+		  trustedControllers[trustedAddress] = true;
     }
 
     /**
-     * @notice Remove a trusted proxy.
+     * @notice Remove a trusted controller.
+     * @param toRemove The address of a trusted controller to remove.
      */
-    function removeTrustedProxy(address toRemove) external onlyOwner {
-      if (!trustedProxies[toRemove]) revert NotTrustedProxy();
-		  trustedProxies[toRemove] = false;
+    function removeTrustedController(address toRemove) external onlyOwner {
+      if (!trustedControllers[toRemove]) revert NotTrustedController();
+		  trustedControllers[toRemove] = false;
     }
 }
