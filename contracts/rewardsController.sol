@@ -14,9 +14,8 @@ import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 contract RewardsController is Owned {
     // Sum to 32 bytes
     struct RewardsContract {
-        address rewardsContractAddress;
         bool isAuth;
-        uint index;
+        uint248 index;
     }
 
     /* ========== STATE VARIABLES ========== */
@@ -40,7 +39,7 @@ contract RewardsController is Owned {
      */
     function addRewardsContract(
         address _rewardsContractAddress
-    ) private onlyOwner {
+    ) public onlyOwner {
         if (rewardsContractsAuth[_rewardsContractAddress].isAuth) {
             revert RewardsContractAlreadyExists();
         }
@@ -50,9 +49,8 @@ contract RewardsController is Owned {
 
         // Add info about it
         rewardsContractsAuth[_rewardsContractAddress] = RewardsContract({
-            rewardsContractAddress: _rewardsContractAddress,
             isAuth: true,
-            index: rewardsContracts.length - 1
+            index: uint248(rewardsContracts.length - 1)
         });
 
         emit RewardsContractAdded(_rewardsContractAddress);
@@ -62,11 +60,15 @@ contract RewardsController is Owned {
      * @notice Add a new rewards contracts to the list of rewards contracts
      * @param _rewardsContractsAddresses The addresses of the rewards contracts
      */
-    function bulkAddRewardsContract (
+    function bulkAddRewardsContract(
         address[] calldata _rewardsContractsAddresses
-    ) private onlyOwner{
-        for (uint i; i < _rewardsContractsAddresses.length; i++) {
+    ) public onlyOwner {
+        for (uint256 i = 0; i < _rewardsContractsAddresses.length; ) {
             addRewardsContract(_rewardsContractsAddresses[i]);
+
+            unchecked {
+                i++;
+            }
         }
     }
 
@@ -77,17 +79,16 @@ contract RewardsController is Owned {
      */
     function removeRewardsContract(
         address _rewardsContractAddress
-    ) private onlyOwner {
+    ) public onlyOwner {
         // Check if it exists
         if (!rewardsContractsAuth[_rewardsContractAddress].isAuth) {
             revert RewardsContractNotFound();
         }
 
         // Get old index and set isAuth to false
-        uint index = rewardsContractsAuth[_rewardsContractAddress].index;
+        uint248 index = rewardsContractsAuth[_rewardsContractAddress].index;
 
         // Set the rewards contract address to address(0), update the isAuth flag to false and set index to 0
-        rewardsContractsAuth[_rewardsContractAddress].rewardsContractAddress = address(0);
         rewardsContractsAuth[_rewardsContractAddress].isAuth = false;
         rewardsContractsAuth[_rewardsContractAddress].index = 0;
 
@@ -106,15 +107,19 @@ contract RewardsController is Owned {
     }
 
     /**
-    * @notice Remove rewards contracts from the list of rewards contracts
-    * @param _rewardsContractsAddresses The addresses of the rewards contracts
-    * @dev The order of contracts in the array will change.
-    */
-   function bulkRemoveRewardsContract (
-    address[] calldata _rewardsContractsAddresses
-    ) private onlyOwner{
-        for (uint i; i < _rewardsContractsAddresses.length; i++) {
+     * @notice Remove rewards contracts from the list of rewards contracts
+     * @param _rewardsContractsAddresses The addresses of the rewards contracts
+     * @dev The order of contracts in the array will change.
+     */
+    function bulkRemoveRewardsContract(
+        address[] calldata _rewardsContractsAddresses
+    ) public onlyOwner {
+        for (uint256 i = 0; i < _rewardsContractsAddresses.length; ) {
             removeRewardsContract(_rewardsContractsAddresses[i]);
+
+            unchecked {
+                i++;
+            }
         }
     }
 
