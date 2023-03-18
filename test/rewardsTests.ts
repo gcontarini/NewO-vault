@@ -309,7 +309,11 @@ describe("Rewards tests", async function () {
                 years(2)
             )
 
-            await rewards.connect(addr1).notifyDeposit(address(addr1));
+            await controller.connect(owner).addRewardsContract(address(rewards))
+
+            await rewards.connect(owner).addTrustedController(address(controller))
+
+            await controller.connect(addr1).notifyAllDeposit(declaration)
 
             await veNewo.connect(addr2)
             ["deposit(uint256,address,uint256)"](
@@ -318,7 +322,7 @@ describe("Rewards tests", async function () {
                 days(90)
             )
 
-            await rewards.connect(addr2).notifyDeposit(address(addr1));
+            await controller.connect(addr2).notifyAllDeposit(declaration)
 
             const { balVeNewo: balVeNewoAddr1 } = await checkBalances(addr1);
             const { balVeNewo: balVeNewoAddr2 } = await checkBalances(addr2);
@@ -327,8 +331,9 @@ describe("Rewards tests", async function () {
 
             await timeTravel(days(90));
 
-            await rewards.connect(addr1).getReward(address(addr1));
-            await rewards.connect(addr2).getReward(address(addr1));
+            await controller.connect(addr1).getAllRewards(declaration)
+
+            await controller.connect(addr2).getAllRewards(declaration)
 
             const { balNewo: balNewoAddr1After } = await checkBalances(addr1);
             const { balNewo: balNewoAddr2After } = await checkBalances(addr2);
