@@ -144,7 +144,7 @@ describe("Rewards tests", async function () {
         );
         await rewards.deployed();
 
-        controller = await RewardsController.deploy(ownerAddress);
+        controller = await RewardsController.deploy(ownerAddress, veNewo.address);
 
         // Transfer some Newo to addr1 so he can spend freelly;
         const numberOfTokens = parseNewo(1000);
