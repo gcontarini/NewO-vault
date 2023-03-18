@@ -40,7 +40,7 @@ contract RewardsController is Owned {
      */
     function addRewardsContract(
         address _rewardsContractAddress
-    ) external onlyOwner {
+    ) private onlyOwner {
         if (rewardsContractsAuth[_rewardsContractAddress].isAuth) {
             revert RewardsContractAlreadyExists();
         }
@@ -59,13 +59,25 @@ contract RewardsController is Owned {
     }
 
     /**
+     * @notice Add a new rewards contracts to the list of rewards contracts
+     * @param _rewardsContractsAddresses The addresses of the rewards contracts
+     */
+    function bulkAddRewardsContract (
+        address[] calldata _rewardsContractsAddresses
+    ) private onlyOwner{
+        for (uint i; i < _rewardsContractsAddresses.length; i++) {
+            addRewardsContract(_rewardsContractsAddresses[i]);
+        }
+    }
+
+    /**
      * @notice Remove a rewards contract from the list of rewards contracts
      * @param _rewardsContractAddress The address of the rewards contract
      * @dev The order of contracts in the array will change.
      */
     function removeRewardsContract(
         address _rewardsContractAddress
-    ) external onlyOwner {
+    ) private onlyOwner {
         // Check if it exists
         if (!rewardsContractsAuth[_rewardsContractAddress].isAuth) {
             revert RewardsContractNotFound();
@@ -73,7 +85,11 @@ contract RewardsController is Owned {
 
         // Get old index and set isAuth to false
         uint index = rewardsContractsAuth[_rewardsContractAddress].index;
+
+        // Set the rewards contract address to address(0), update the isAuth flag to false and set index to 0
+        rewardsContractsAuth[_rewardsContractAddress].rewardsContractAddress = address(0);
         rewardsContractsAuth[_rewardsContractAddress].isAuth = false;
+        rewardsContractsAuth[_rewardsContractAddress].index = 0;
 
         // Get last contract address
         address lastRewardsContractAddress = rewardsContracts[
@@ -87,6 +103,19 @@ contract RewardsController is Owned {
         rewardsContractsAuth[lastRewardsContractAddress].index = index;
 
         emit RewardsContractRemoved(_rewardsContractAddress);
+    }
+
+    /**
+    * @notice Remove rewards contracts from the list of rewards contracts
+    * @param _rewardsContractsAddresses The addresses of the rewards contracts
+    * @dev The order of contracts in the array will change.
+    */
+   function bulkRemoveRewardsContract (
+    address[] calldata _rewardsContractsAddresses
+    ) private onlyOwner{
+        for (uint i; i < _rewardsContractsAddresses.length; i++) {
+            removeRewardsContract(_rewardsContractsAddresses[i]);
+        }
     }
 
     /* ========== IRewards ========== */
