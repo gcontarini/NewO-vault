@@ -356,6 +356,37 @@ describe("Rewards tests", async function () {
         })
     })
 
+    describe("Testing Trustable", () => {
+        before(initialize);
+        it("addTrustedController should only be call by owner, should not allow adding an existing trusted controller", async function () {
+            await expect(rewards.connect(addr1).addTrustedController(address(controller))).to.be.reverted;
+            
+            await rewards.connect(owner).addTrustedController(address(controller));
+            expect(await rewards.connect(owner).trustedControllers(address(controller))).to.be.true;
+            
+            await expect(rewards.connect(owner).addTrustedController(address(controller))).to.be.revertedWith("AlreadyTrustedController");
+        });
+        
+        it("removeTrustedController should only be call by owner, should not allow removing a non-existent trusted controller", async function () {
+            await expect(rewards.connect(addr1).removeTrustedController(address(controller))).to.be.reverted;
+            
+            await rewards.connect(owner).removeTrustedController(address(controller));
+            expect(await rewards.connect(owner).trustedControllers(address(controller))).to.be.false;
+            
+            await expect(rewards.connect(owner).removeTrustedController(address(controller))).to.be.revertedWith("NotTrustedController");
+        });
+
+        it("should not allow non-trusted controller to call function", async function () {
+            await expect(controller.connect(addr1).notifyAllDeposit(declaration)).to.be.revertedWith("NotTrustedController");
+        });
+
+        it("should allow trusted controller to call function", async function () {
+            await rewards.connect(owner).addTrustedController(address(controller));
+            await controller.connect(addr1).notifyAllDeposit(declaration);
+
+        });
+    });
+
     async function setReward(rewardAmount: number, distributionPeriod: number) {
 
         const tokensToReward = parseNewo(rewardAmount);
