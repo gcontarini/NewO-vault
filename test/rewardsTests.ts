@@ -362,7 +362,7 @@ describe("Rewards tests", async function () {
             await expect(rewards.connect(addr1).addTrustedController(address(controller))).to.be.reverted;
             
             await rewards.connect(owner).addTrustedController(address(controller));
-            expect(await rewards.connect(owner).trustedControllers(address(controller))).to.be.true;
+            expect(await rewards.trustedControllers(address(controller))).to.be.true;
             
             await expect(rewards.connect(owner).addTrustedController(address(controller))).to.be.revertedWith("AlreadyTrustedController");
         });
@@ -371,12 +371,13 @@ describe("Rewards tests", async function () {
             await expect(rewards.connect(addr1).removeTrustedController(address(controller))).to.be.reverted;
             
             await rewards.connect(owner).removeTrustedController(address(controller));
-            expect(await rewards.connect(owner).trustedControllers(address(controller))).to.be.false;
+            expect(await rewards.trustedControllers(address(controller))).to.be.false;
             
             await expect(rewards.connect(owner).removeTrustedController(address(controller))).to.be.revertedWith("NotTrustedController");
         });
 
         it("should not allow non-trusted controller to call function", async function () {
+            await controller.connect(owner).addRewardsContract(address(rewards));
             await expect(controller.connect(addr1).notifyAllDeposit(declaration)).to.be.revertedWith("NotTrustedController");
         });
 
