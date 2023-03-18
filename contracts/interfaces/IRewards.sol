@@ -13,4 +13,12 @@ interface IRewards {
      * @param user The address of the user who made the deposit
      */
     function notifyDeposit(address user) external;
+
+    /**
+     * @notice Check if the given controller is trusted by the reward contract
+     * @param controller The address of the controller
+     */
+    function isControllerTrusted(
+        address controller
+    ) external view returns (bool);
 }

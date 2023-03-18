@@ -38,4 +38,12 @@ abstract contract Trustable is Owned {
         if (!trustedControllers[toRemove]) revert NotTrustedController();
         trustedControllers[toRemove] = false;
     }
+
+    function isControllerTrusted(address controller)
+        external
+        view
+        returns (bool)
+    {
+        return trustedControllers[controller];
+    }
 }
