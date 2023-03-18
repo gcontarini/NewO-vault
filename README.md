@@ -127,6 +127,28 @@ address owner = <wallet address>;
 veNewo.withdraw(veNewo.assetBalanceOf(owner), owner, owner);
 ```
 
+## Gracefully exiting
+
+For an user to fully exit from the veNewo system, meaning collect all rewards and receive back all newo tokens. It first needs to collect all rewards and then unstake its newo. This is necessary since the rewards contract uses the balance of the veToken to grant rewards for the user. If the user has no veTokens on the moment it calls the reward contract it'll grant more zero rewards for it. So remember, first collect rewards and then unstake.
+
+With the controller:
+```
+controller.getAllRewards(declaration);
+
+veNewo.exit();
+```
+
+Before the controller:
+```
+// Collect all rewards
+for (int i = 0; i < allRewards.lenght; i++) {
+    allRewards[i].getRewards();
+}
+
+// Only after that exit
+veNewo.exit()
+```
+
 ## Re-locking
 
 An address can re-lock its locked tokens anytime. Re-locking causes the amount of veNEWO
