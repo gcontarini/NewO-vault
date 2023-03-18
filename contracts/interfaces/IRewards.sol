@@ -6,7 +6,7 @@ interface IRewards {
      * @notice Get the rewards for the given user
      * @param user The address of the user
      */
-    function getRewards(address user) external;
+    function getReward(address user) external;
 
     /**
      * @notice Notify the contract that a deposit has been made by the given user

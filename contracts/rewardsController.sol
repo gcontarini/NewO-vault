@@ -4,6 +4,8 @@ pragma solidity ^0.8.13;
 import {Owned} from "./Owned.sol";
 import {IRewards} from "./interfaces/IRewards.sol";
 
+import "hardhat/console.sol";
+
 /**
  * @title RewardsController
  * @notice This contract is used to manage the rewards contracts
@@ -94,8 +96,9 @@ contract RewardsController is Owned {
         string calldata declaration
     ) public onlyConfirmedTermsOfUse(declaration) {
         for (uint256 i = 0; i < rewardsContracts.length; ) {
+            console.log(msg.sender);
             IRewards rewardsContract = IRewards(rewardsContracts[i]);
-            rewardsContract.getRewards(msg.sender);
+            rewardsContract.getReward(msg.sender);
 
             unchecked {
                 i++;
