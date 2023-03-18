@@ -145,11 +145,7 @@ contract RewardsController is Owned {
         uint256 balanceBefore = underlying.balanceOf(address(this));
 
         // Controller will receive a reward for kicking off the user
-        veVault.withdraw(
-            veVault.balanceOf(msg.sender),
-            msg.sender,
-            msg.sender
-        );
+        veVault.withdraw(veVault.balanceOf(msg.sender), msg.sender, msg.sender);
 
         // Balance after receiving rewards
         uint256 balanceAfter = underlying.balanceOf(address(this));
