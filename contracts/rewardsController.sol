@@ -3,15 +3,14 @@ pragma solidity ^0.8.13;
 
 import {Owned} from "./Owned.sol";
 import {IRewards} from "./interfaces/IRewards.sol";
-
-import "hardhat/console.sol";
+import {IVeVault} from "./interfaces/IVeVault.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 /**
  * @title RewardsController
  * @notice This contract is used to manage the rewards contracts
  * @dev This contract is owned
  */
-
 contract RewardsController is Owned {
     // Sum to 32 bytes
     struct RewardsContract {
@@ -25,9 +24,13 @@ contract RewardsController is Owned {
     address[] public rewardsContracts;
     mapping(address => RewardsContract) public rewardsContractsAuth;
 
+    address public veTokenAddress;
+
     /* ========== CONSTRUCTOR ========== */
 
-    constructor(address owner_) Owned(owner_) {}
+    constructor(address owner_, address veToken_) Owned(owner_) {
+        veTokenAddress = veToken_;
+    }
 
     /* ========== FUNCTIONS ========== */
 
@@ -96,7 +99,6 @@ contract RewardsController is Owned {
         string calldata declaration
     ) public onlyConfirmedTermsOfUse(declaration) {
         for (uint256 i = 0; i < rewardsContracts.length; ) {
-            console.log(msg.sender);
             IRewards rewardsContract = IRewards(rewardsContracts[i]);
             rewardsContract.getReward(msg.sender);
 
@@ -124,9 +126,40 @@ contract RewardsController is Owned {
         }
     }
 
-    // LP contracts also have deposit. We need to think about it.
+    /**
+     * @notice Collect all rewards and exit from  veToken
+     * @param declaration The signup declaration of the user
+     * @dev This is a convenience hacky function. Can only be used
+     * after the user is after its grace period
+     */
+    function exitAllRewards(
+        string calldata declaration
+    ) public onlyConfirmedTermsOfUse(declaration) {
+        // Collect all rewards
+        getAllRewards(declaration);
 
-    /* ========== MODIFIERS ========== */
+        IVeVault veVault = IVeVault(veTokenAddress);
+        IERC20 underlying = IERC20(veVault.asset());
+
+        // Balance before receiving rewards
+        uint256 balanceBefore = underlying.balanceOf(address(this));
+
+        // Controller will receive a reward for kicking off the user
+        veVault.withdraw(
+            veVault.balanceOf(msg.sender),
+            msg.sender,
+            msg.sender
+        );
+
+        // Balance after receiving rewards
+        uint256 balanceAfter = underlying.balanceOf(address(this));
+
+        // Calculate the amount of rewards to transfer to the user
+        uint256 amount = balanceAfter - balanceBefore;
+        underlying.transfer(msg.sender, amount);
+    }
+
+    /* ========= MODIFIERS ========== */
 
     /**
      * @notice Check if the user has confirmed the terms of use
