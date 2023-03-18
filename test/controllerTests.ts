@@ -28,7 +28,7 @@ import {
 const newoTokenAddress = "0x98585dFc8d9e7D48F0b1aE47ce33332CF4237D96";
 const TreasuryAddress = "0xdb36b23964FAB32dCa717c99D6AEFC9FB5748f3a";
 
-describe("Rewards tests", async function () {
+describe("Controller tests", async function () {
     let VeNewo: VeNewO__factory;
     let XNewo: XNewO__factory;
     let Rewards: Rewards__factory;
