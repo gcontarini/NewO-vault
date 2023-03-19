@@ -136,6 +136,36 @@ contract RewardsController is Owned {
         }
     }
 
+    /**
+     * @notice Check if controller is trusted by the reward contract
+     * @return The list of rewards addresses contracts that do
+     * not have the controller as trusted
+     */
+    function rewardTrustableStatus() public view returns(address[] memory) {
+        uint length = rewardsContracts.length;
+
+        address[] memory missingPermissions = new address[](length);
+        uint256 missingPermissionsLength = 0;
+        for (uint256 i = 0; i < length; ) {
+            address rewardsContract = rewardsContracts[i];
+            IRewards rewards = IRewards(rewardsContract);
+
+            if (rewards.isControllerTrusted(address(this))) {
+                missingPermissions[missingPermissionsLength] = rewardsContract;
+
+                unchecked {
+                    missingPermissionsLength++;
+                }
+            }
+
+            unchecked {
+                i++;
+            }
+        }
+
+        return missingPermissions;
+    }
+
     /* ========== IRewards ========== */
 
     /**
@@ -145,7 +175,8 @@ contract RewardsController is Owned {
     function getAllRewards(
         string calldata declaration
     ) public onlyConfirmedTermsOfUse(declaration) {
-        for (uint256 i = 0; i < rewardsContracts.length; ) {
+        uint length = rewardsContracts.length;
+        for (uint i = 0; i < length; ) {
             IRewards rewardsContract = IRewards(rewardsContracts[i]);
             rewardsContract.getReward(msg.sender);
 
@@ -163,7 +194,8 @@ contract RewardsController is Owned {
     function notifyAllDeposit(
         string calldata declaration
     ) public onlyConfirmedTermsOfUse(declaration) {
-        for (uint256 i = 0; i < rewardsContracts.length; ) {
+        uint length = rewardsContracts.length;
+        for (uint i = 0; i < length; ) {
             IRewards rewardsContract = IRewards(rewardsContracts[i]);
             rewardsContract.notifyDeposit(msg.sender);
 
