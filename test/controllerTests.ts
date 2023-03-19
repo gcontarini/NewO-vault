@@ -169,7 +169,79 @@ describe("Controller tests", async function () {
             );
     }
 
-    describe("Testing Controller", () => {
+    describe("Testing updateLegalDeclaration()", () => {
         before(initialize);
+
+        it("Should ony be callable by the owner", async () => {
+            await expect(controller.connect(addr1).updateLegalDeclaration(declaration)).to.be.revertedWith("Only the contract owner may perform this action");
+
+            await expect(controller.connect(owner).updateLegalDeclaration(declaration)).to.not.be.reverted;
+        })
+
+        it("Should update the declaration", async () => {
+            let newDeclaration = "I don't agree with nothing";
+            await controller.connect(owner).updateLegalDeclaration(newDeclaration);
+
+            expect(await controller.legalDeclaration()).to.be.equal(newDeclaration);
+        })
     });
+
+    describe("Testing addRewardsContract()", () => {
+        before(initialize);
+
+        it("Should ony be callable by the owner", async () => {
+            await expect(controller.connect(addr1).addRewardsContract(rewards.address)).to.be.revertedWith("Only the contract owner may perform this action");
+
+            await expect(controller.connect(owner).addRewardsContract(rewards.address)).to.not.be.reverted;
+        })
+
+        it("Should add a new rewards contract", async () => {
+            expect(await controller.rewardsContracts(0)).to.be.equal(rewards.address);
+
+            let rewardsAuth = await controller.rewardsContractsAuth(rewards.address);
+
+            expect(rewardsAuth.isAuth).to.be.true;
+        })
+
+        it("Should not allow to add duplicated rewards contracts", async () => {
+            await expect(controller.connect(owner).addRewardsContract(rewards.address)).to.be.revertedWith("RewardsContractAlreadyExists()");
+        })
+    })
+
+    describe("Testing removeRewardsContract()", () => {
+        before(initialize);
+
+        it("Should ony be callable by the owner", async () => {
+            await expect(controller.connect(addr1).removeRewardsContract(rewards.address)).to.be.revertedWith("Only the contract owner may perform this action");
+        })
+
+        it("Should revert if removing an unexisting rewards contract", async () => {
+            await expect(controller.connect(owner).removeRewardsContract(addr1Address)).to.be.revertedWith("RewardsContractNotFound()");
+        })
+
+        it("Should remove a rewards contract", async () => {
+
+            let someRewardsAddress = address(addr1);
+
+            await controller.connect(owner).addRewardsContract(rewards.address);
+
+            await controller.connect(owner).addRewardsContract(someRewardsAddress);
+
+            expect(await controller.rewardsContracts(0)).to.be.equal(rewards.address);
+
+            expect(await controller.rewardsContracts(1)).to.be.equal(someRewardsAddress);
+
+            await controller.connect(owner).removeRewardsContract(rewards.address);
+
+            expect(await controller.rewardsContracts(0)).to.be.equal(someRewardsAddress);
+
+            let rewardsAuth = await controller.rewardsContractsAuth(rewards.address);
+
+            let someRewardsAuth = await controller.rewardsContractsAuth(someRewardsAddress);
+
+            expect(rewardsAuth.isAuth).to.be.false;
+
+            expect(someRewardsAuth.isAuth).to.be.true;
+        })
+    })
 });

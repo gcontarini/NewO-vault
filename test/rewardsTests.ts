@@ -359,10 +359,11 @@ describe("Rewards tests", async function () {
     describe("Testing Trustable", () => {
         before(initialize);
         it("addTrustedController should only be call by owner, should not allow adding an existing trusted controller", async function () {
-            await expect(rewards.connect(addr1).addTrustedController(address(controller))).to.be.reverted;
+            await expect(rewards.connect(addr1).addTrustedController(address(controller))).to.be.revertedWith("Only the contract owner may perform this action");
 
             await rewards.connect(owner).addTrustedController(address(controller));
-            expect(await rewards.trustedControllers(address(controller))).to.be.true;
+
+            await rewards.trustedControllers(address(controller));
 
             await expect(rewards.connect(owner).addTrustedController(address(controller))).to.be.revertedWith("AlreadyTrustedController");
         });

@@ -25,13 +25,27 @@ contract RewardsController is Owned {
 
     address public veTokenAddress;
 
+    string public legalDeclaration;
+
     /* ========== CONSTRUCTOR ========== */
 
     constructor(address owner_, address veToken_) Owned(owner_) {
         veTokenAddress = veToken_;
+        legalDeclaration = "I have read and agree to the Terms and Conditions https://neworder.network/legal";
     }
 
     /* ========== FUNCTIONS ========== */
+
+    /**
+     * @notice Updates the legal declaration
+     * @param declaration the new legal declaration
+     */
+
+    function updateLegalDeclaration(
+        string calldata declaration
+    ) public onlyOwner {
+        legalDeclaration = declaration;
+    }
 
     /**
      * @notice Add a new rewards contract to the list of rewards contracts
@@ -197,12 +211,8 @@ contract RewardsController is Owned {
      */
     modifier onlyConfirmedTermsOfUse(string memory declaration) {
         if (
-            keccak256(abi.encodePacked(declaration)) !=
-            keccak256(
-                abi.encodePacked(
-                    "I have read and agree to the Terms and Conditions https://neworder.network/legal"
-                )
-            )
+            keccak256(abi.encode(declaration)) !=
+            keccak256(abi.encode(legalDeclaration))
         ) {
             revert WrongTermsOfUse();
         }
