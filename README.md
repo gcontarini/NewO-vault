@@ -181,6 +181,13 @@ On day 364 the token holder decides to re-lock all their NEWO for 3 months. Then
 
 The re-locked address needs to notify reward vaults of the new unlock time and veNEWO amount.
 
+## Rewards Interface
+
+All users after locking Newo on the veVault need to notifyDeposit() in every rewards contracts to register itself for rewards (This is now done trougth notifyAllDeposit() on the controller). When calling notifyDeposit() an Account structure is created for that user in the respective rewards contract.
+
+To tell if an address is registered for rewards on an rewards contract, you can getDueDate(address user) on the reward contract. If the user is not registered, the function will return zero. It the user is registered, the function will return the dueDate of that user, that should be the same as the unlockDate() of that user on the veVault.
+
+This way is also possible to check if the rewards contract is synced with veVault.
 
 # Contracts
 

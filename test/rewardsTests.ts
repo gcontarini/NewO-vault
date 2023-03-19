@@ -313,7 +313,15 @@ describe("Rewards tests", async function () {
 
             await rewards.connect(owner).addTrustedController(address(controller))
 
+            expect(await rewards.connect(owner).getDueDate(address(addr1))).to.be.equal(0)
+
             await controller.connect(addr1).notifyAllDeposit(declaration)
+
+            let dueDate = await rewards.connect(addr1).getDueDate(address(addr1))
+
+            let unlockDate = await veNewo.connect(addr1).unlockDate(address(addr1))
+
+            expect(dueDate).to.be.equal(unlockDate)
 
             await veNewo.connect(addr2)
             ["deposit(uint256,address,uint256)"](

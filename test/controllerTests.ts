@@ -37,6 +37,8 @@ describe("Controller tests", async function () {
 
     let veNewo: VeNewO;
     let rewards: Rewards;
+    let rewards1: Rewards;
+    let rewards2: Rewards;
     let controller: RewardsController;
 
     let owner: Signer;
@@ -135,7 +137,7 @@ describe("Controller tests", async function () {
         parseVeNewo = await parseToken(veNewo);
         formatVeNewo = await formatToken(veNewo);
 
-        // rewards deployement
+        // rewards contracts deployement
         rewards = await Rewards.deploy(
             ownerAddress,
             veNewo.address,
@@ -144,7 +146,24 @@ describe("Controller tests", async function () {
         );
         await rewards.deployed();
 
+        rewards1 = await Rewards.deploy(
+            ownerAddress,
+            veNewo.address,
+            TreasuryAddress,
+            newoTokenAddress
+        );
+        await rewards1.deployed();
+
+        rewards2 = await Rewards.deploy(
+            ownerAddress,
+            veNewo.address,
+            TreasuryAddress,
+            newoTokenAddress
+        );
+        await rewards2.deployed();
+
         controller = await RewardsController.deploy(ownerAddress, veNewo.address);
+        await controller.deployed();
 
         // Transfer some Newo to addr1 so he can spend freelly;
         const numberOfTokens = parseNewo(1000);
@@ -244,4 +263,162 @@ describe("Controller tests", async function () {
             expect(someRewardsAuth.isAuth).to.be.true;
         })
     })
+
+    describe("Testing bulkAddRewardsContract()", async () => {
+        before(initialize);
+
+        it("Should ony be callable by the owner", async () => {
+            await expect(controller.connect(addr1).bulkAddRewardsContract([rewards.address])).to.be.revertedWith("Only the contract owner may perform this action");
+        })
+
+        it("Should add multiple rewards contracts", async () => {
+            await controller.connect(owner).bulkAddRewardsContract([rewards.address, rewards1.address, rewards2.address]);
+
+            expect(await controller.rewardsContracts(0)).to.be.equal(rewards.address);
+
+            expect(await controller.rewardsContracts(1)).to.be.equal(rewards1.address);
+
+            expect(await controller.rewardsContracts(2)).to.be.equal(rewards2.address);
+        })
+
+        it("Should not allow to add duplicated rewards contracts", async () => {
+            await expect(controller.connect(owner).bulkAddRewardsContract([rewards.address, rewards1.address, rewards2.address])).to.be.revertedWith("RewardsContractAlreadyExists()");
+        })
+    })
+
+    describe("Testing bulkRemoveRewardsContract()", async () => {
+        before(initialize);
+
+        it("Should ony be callable by the owner", async () => {
+            await expect(controller.connect(addr1).bulkRemoveRewardsContract([rewards.address])).to.be.revertedWith("Only the contract owner may perform this action");
+        })
+
+        it("Should remove multiple rewards contracts", async () => {
+            await controller.connect(owner).bulkAddRewardsContract([rewards.address, rewards1.address, rewards2.address]);
+
+            expect(await controller.rewardsContracts(0)).to.be.equal(rewards.address);
+
+            expect(await controller.rewardsContracts(1)).to.be.equal(rewards1.address);
+
+            expect(await controller.rewardsContracts(2)).to.be.equal(rewards2.address);
+
+            await controller.connect(owner).bulkRemoveRewardsContract([rewards.address, rewards1.address]);
+
+            expect(await controller.rewardsContracts(0)).to.be.equal(rewards2.address);
+        })
+
+    })
+
+    describe("Testing rewardTrustableStatus()", async () => {
+        before(initialize);
+
+        it("Should return a list of rewards address that does not have the controller as trusted", async () => {
+            expect(await controller.rewardTrustableStatus()).to.deep.equal([]);
+
+            await controller.connect(owner).addRewardsContract(rewards.address)
+            await controller.connect(owner).addRewardsContract(rewards1.address)
+
+            expect(await controller.rewardTrustableStatus()).to.deep.equal([rewards.address, rewards1.address]);
+
+            await rewards.connect(owner).addTrustedController(controller.address);
+
+            expect(await controller.rewardTrustableStatus()).to.deep.equal([rewards1.address, ethers.constants.AddressZero]);
+
+            await rewards1.connect(owner).addTrustedController(controller.address)
+
+            expect(await controller.rewardTrustableStatus()).to.deep.equal([ethers.constants.AddressZero, ethers.constants.AddressZero]);
+
+            await rewards.connect(owner).removeTrustedController(controller.address);
+
+            expect(await controller.rewardTrustableStatus()).to.deep.equal([rewards.address, ethers.constants.AddressZero]);
+        })
+    })
+
+    describe.only("Testing notifyAllDeposit", async () => {
+        before(initialize);
+
+        it("Should only revert if wrong declaration is passed", async () => {
+            await expect(controller.connect(owner).notifyAllDeposit("wrong declaration")).to.be.revertedWith("WrongTermsOfUse");
+        })
+
+        it("Should not revert even if there is no rewards contracts set", async () => {
+            await expect(controller.connect(addr1).notifyAllDeposit(declaration)).not.to.be.reverted;
+        })
+
+        it("Should nofity deposit in all rewards contracts known", async () => {
+            const rewardAmount = 3000000;
+            await setReward(rewardAmount / 3, days(90), rewards);
+
+            await setReward(rewardAmount / 3, days(90), rewards1);
+
+            await setReward(rewardAmount / 3, days(90), rewards2);
+
+            await newoToken.connect(treasury).transfer(address(addr1), parseNewo(1000));
+
+            await veNewo
+                .connect(addr1)
+            ["deposit(uint256,address,uint256)"](
+                parseNewo(1000),
+                address(addr1),
+                years(2)
+            )
+
+            await controller.connect(owner).bulkAddRewardsContract([rewards.address, rewards1.address, rewards2.address])
+
+            // Explosive test: To "fix" just comment the line bellow and uncomment the other one
+            await controller.connect(addr2).notifyAllDeposit(declaration);
+            // await controller.connect(addr1).notifyAllDeposit(declaration);
+
+            let userVeNewoUnlockDate = await veNewo.unlockDate(address(addr1))
+
+            let rewardsDueDate = await rewards.getDueDate(address(addr1))
+
+            let rewards1DueDate = await rewards1.getDueDate(address(addr1))
+
+            let rewards2DueDate = await rewards2.getDueDate(address(addr1))
+
+            expect(userVeNewoUnlockDate).to.be.equal(rewardsDueDate);
+
+            expect(userVeNewoUnlockDate).to.be.equal(rewards1DueDate);
+
+            expect(userVeNewoUnlockDate).to.be.equal(rewards2DueDate);
+        })
+    })
+
+    describe("Testing getAllRewards()", async () => {
+        before(initialize);
+
+        it("Should only revert if wrong declaration is passed", async () => {
+            await expect(controller.connect(owner).getAllRewards("wrong declaration")).to.be.revertedWith("WrongTermsOfUse");
+        })
+
+        it("Should not revert even if there is no rewards contracts set", async () => {
+            await expect(controller.connect(addr1).getAllRewards(declaration)).not.to.be.reverted;
+        })
+    })
+
+    async function setReward(rewardAmount: number, distributionPeriod: number, rewardsContract: Rewards) {
+
+        const tokensToReward = parseNewo(rewardAmount);
+
+        console.log("\n Setting distribution reward");
+
+        await rewardsContract
+            .connect(owner)
+            .setRewardsDuration(distributionPeriod)
+
+        await newoToken
+            .connect(treasury)
+            .transfer(address(rewardsContract), tokensToReward);
+
+        await rewardsContract
+            .connect(treasury)
+            .notifyRewardAmount(tokensToReward);
+
+        await rewardsContract
+            .connect(owner)
+            .addTrustedController(controller.address)
+
+    }
 });
+
