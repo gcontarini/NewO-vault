@@ -2,7 +2,7 @@ import { ethers } from "hardhat";
 import hre = require("hardhat");
 
 async function main() {
-    const ownerAddress = "";
+    const ownerAddress = "0xe7A446fAa71Ced46c45E29b320da0B3690127237";
     const veNewoAddress = "0x59b818dC48b6cbE96548Cec6a65832642685747a";
     const rewardsTokenAddress = "0xe5EF84BA9Dc859360727A27D13105a72b9023834";
 

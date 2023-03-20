@@ -30,15 +30,15 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 
 const config: HardhatUserConfig = {
   solidity: "0.8.13",
-  defaultNetwork: "rinkeby",
+  defaultNetwork: "goerli",
   networks: {
     hardhat: {
       forking: {
         url: process.env.ETH_MAINFORK || ""
       }
     },
-    rinkeby: {
-      url: process.env.RINKEBY_URL || "",
+    goerli: {
+      url: process.env.GOERLI_URL || "",
       accounts:
         process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
     },
