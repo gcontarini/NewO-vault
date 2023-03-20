@@ -402,6 +402,53 @@ describe("Controller tests", async function () {
         it("Should not revert even if there is no rewards contracts set", async () => {
             await expect(controller.connect(addr1).getAllRewards(declaration)).not.to.be.reverted;
         })
+
+        it("Should get all rewards from all rewards contracts known", async () => {
+            const rewardAmount = 3000000;
+            await setReward(rewardAmount / 3, days(90), rewards);
+
+            await setReward(rewardAmount / 3, days(90), rewards1);
+
+            await setReward(rewardAmount / 3, days(90), rewards2);
+
+            await newoToken.connect(treasury).transfer(address(addr1), parseNewo(1000));
+
+            const { balNewo: balNewoAddr1Before } = await checkBalances(addr1);
+
+            await veNewo
+                .connect(addr1)
+            ["deposit(uint256,address,uint256)"](
+                parseNewo(1000),
+                address(addr1),
+                years(2)
+            )
+
+            await controller.connect(owner).bulkAddRewardsContract([rewards.address, rewards1.address, rewards2.address])
+
+            // Thought we would need this. 
+            // await rewards.connect(owner).addTrustedController(controller.address);
+            // await rewards1.connect(owner).addTrustedController(controller.address);
+            // await rewards2.connect(owner).addTrustedController(controller.address);
+
+            await controller.connect(addr1).notifyAllDeposit(declaration);
+
+            await timeTravel(days(90));
+
+            await controller.connect(addr1).getAllRewards(declaration);
+        
+            const { balNewo: balNewoAddr1After } = await checkBalances(addr1);
+        })
+    })
+
+    describe("Testing exitAllRewards()", async () => {
+        before(initialize);
+        it("Should only revert if wrong declaration is passed", async () => {
+            await expect(controller.connect(owner).exitAllRewards("wrong declaration")).to.be.revertedWith("WrongTermsOfUse");
+        })
+
+        it("Should not revert even if there is no rewards contracts set", async () => {
+            await expect(controller.connect(addr1).exitAllRewards(declaration)).not.to.be.reverted;
+        })
     })
 
     async function setReward(rewardAmount: number, distributionPeriod: number, rewardsContract: Rewards) {
@@ -426,6 +473,24 @@ describe("Controller tests", async function () {
             .connect(owner)
             .addTrustedController(controller.address)
 
+    }
+
+    async function checkBalances(signer: Signer) {
+        const balNewo = await balanceNewo(signer);
+        const balVeNewo = await balanceVeNewo(signer);
+        console.log("\tBalance report:");
+
+        console.log(
+            `\tbalance of newo of ${address(signer)}: ${formatNewo(
+                balNewo
+            )}`
+        );
+        console.log(
+            `\tbalance of veNewo of ${address(signer)}: ${formatVeNewo(
+                balVeNewo
+            )}`
+        );
+        return { balNewo, balVeNewo };
     }
 });
 
