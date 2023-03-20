@@ -176,8 +176,8 @@ contract Rewards is
         address user
     )
         public
-        updateReward(user)
         onlyTrustedControllers
+        updateReward(user)
         returns (Account memory)
     {
         emit NotifyDeposit(
@@ -195,7 +195,7 @@ contract Rewards is
      */
     function getReward(
         address user
-    ) public updateReward(user) onlyTrustedControllers {
+    ) public onlyTrustedControllers updateReward(user) {
         uint256 reward = accounts[user].rewards;
         if (reward <= 0) return;
 
