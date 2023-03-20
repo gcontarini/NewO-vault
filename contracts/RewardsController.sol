@@ -38,9 +38,8 @@ contract RewardsController is Owned {
 
     /**
      * @notice Updates the legal declaration
-     * @param declaration the new legal declaration
+     * @param declaration The new legal declaration
      */
-
     function updateLegalDeclaration(
         string calldata declaration
     ) public onlyOwner {

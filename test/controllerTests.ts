@@ -191,7 +191,7 @@ describe("Controller tests", async function () {
     describe("Testing updateLegalDeclaration()", () => {
         before(initialize);
 
-        it("Should ony be callable by the owner", async () => {
+        it("Should only be callable by the owner", async () => {
             await expect(controller.connect(addr1).updateLegalDeclaration(declaration)).to.be.revertedWith("Only the contract owner may perform this action");
 
             await expect(controller.connect(owner).updateLegalDeclaration(declaration)).to.not.be.reverted;
@@ -208,7 +208,7 @@ describe("Controller tests", async function () {
     describe("Testing addRewardsContract()", () => {
         before(initialize);
 
-        it("Should ony be callable by the owner", async () => {
+        it("Should only be callable by the owner", async () => {
             await expect(controller.connect(addr1).addRewardsContract(rewards.address)).to.be.revertedWith("Only the contract owner may perform this action");
 
             await expect(controller.connect(owner).addRewardsContract(rewards.address)).to.not.be.reverted;
@@ -230,7 +230,7 @@ describe("Controller tests", async function () {
     describe("Testing removeRewardsContract()", () => {
         before(initialize);
 
-        it("Should ony be callable by the owner", async () => {
+        it("Should only be callable by the owner", async () => {
             await expect(controller.connect(addr1).removeRewardsContract(rewards.address)).to.be.revertedWith("Only the contract owner may perform this action");
         })
 
@@ -267,7 +267,7 @@ describe("Controller tests", async function () {
     describe("Testing bulkAddRewardsContract()", async () => {
         before(initialize);
 
-        it("Should ony be callable by the owner", async () => {
+        it("Should only be callable by the owner", async () => {
             await expect(controller.connect(addr1).bulkAddRewardsContract([rewards.address])).to.be.revertedWith("Only the contract owner may perform this action");
         })
 
@@ -282,6 +282,8 @@ describe("Controller tests", async function () {
         })
 
         it("Should not allow to add duplicated rewards contracts", async () => {
+            await expect(controller.connect(owner).bulkAddRewardsContract([rewards2.address])).to.be.revertedWith("RewardsContractAlreadyExists()");
+
             await expect(controller.connect(owner).bulkAddRewardsContract([rewards.address, rewards1.address, rewards2.address])).to.be.revertedWith("RewardsContractAlreadyExists()");
         })
     })
@@ -289,7 +291,7 @@ describe("Controller tests", async function () {
     describe("Testing bulkRemoveRewardsContract()", async () => {
         before(initialize);
 
-        it("Should ony be callable by the owner", async () => {
+        it("Should only be callable by the owner", async () => {
             await expect(controller.connect(addr1).bulkRemoveRewardsContract([rewards.address])).to.be.revertedWith("Only the contract owner may perform this action");
         })
 
@@ -307,6 +309,11 @@ describe("Controller tests", async function () {
             expect(await controller.rewardsContracts(0)).to.be.equal(rewards2.address);
         })
 
+        it("Should revert if removing unexisting rewards contracts", async () => {
+            await expect(controller.connect(owner).bulkRemoveRewardsContract([rewards2.address, rewards1.address, rewards.address])).to.be.revertedWith("RewardsContractNotFound()");
+
+            expect(await controller.rewardsContracts(0)).to.be.equal(rewards2.address);
+        })
     })
 
     describe("Testing rewardTrustableStatus()", async () => {
