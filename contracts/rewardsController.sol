@@ -6,8 +6,6 @@ import {IRewards} from "./interfaces/IRewards.sol";
 import {IVeVault} from "./interfaces/IVeVault.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
-import "hardhat/console.sol";
-
 /**
  * @title RewardsController
  * @notice This contract is used to manage the rewards contracts
@@ -153,7 +151,6 @@ contract RewardsController is Owned {
             IRewards rewards = IRewards(rewardsContract);
 
             if (!rewards.isControllerTrusted(address(this))) {
-                console.log(rewardsContract);
                 missingPermissions[missingPermissionsLength] = rewardsContract;
 
                 unchecked {
