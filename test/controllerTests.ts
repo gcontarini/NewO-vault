@@ -352,7 +352,7 @@ describe("Controller tests", async function () {
             await expect(controller.connect(addr1).notifyAllDeposit(declaration)).not.to.be.reverted;
         })
 
-        it("Should nofity deposit in all rewards contracts known", async () => {
+        it("Should notify deposit in all rewards contracts known", async () => {
             const rewardAmount = 3000000;
             await setReward(rewardAmount / 3, days(90), rewards);
 
