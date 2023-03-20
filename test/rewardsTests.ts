@@ -392,6 +392,17 @@ describe("Rewards tests", async function () {
 
         it("should allow trusted controller to call function", async function () {
             await rewards.connect(owner).addTrustedController(address(controller));
+
+            await newoToken.connect(treasury).transfer(address(addr2), parseNewo(1000));
+
+            await veNewo
+                .connect(addr1)
+            ["deposit(uint256,address,uint256)"](
+                parseNewo(1000),
+                address(addr1),
+                years(2)
+            )
+
             await controller.connect(addr1).notifyAllDeposit(declaration);
         });
     });
