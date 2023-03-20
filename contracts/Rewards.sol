@@ -16,6 +16,7 @@ error RewardTooHigh();
 error RewardPeriodNotComplete(uint256 finish);
 error NotWhitelisted();
 error InsufficientBalance(uint256 available, uint256 required);
+error UserHasNoVeToken();
 
 /**
  * @title Implements a reward system which grant rewards based on veToken balance
@@ -140,6 +141,9 @@ contract Rewards is
      * @return amount of reward available to claim
      */
     function earned(address owner) public view returns (uint256) {
+        if (accounts[owner].dueDate == 0) {
+            revert UserHasNoVeToken();
+        }
         uint256 currentReward = rewardPerToken(owner);
         uint256 paidReward = accounts[owner].rewardPerTokenPaid;
 

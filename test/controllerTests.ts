@@ -334,7 +334,7 @@ describe("Controller tests", async function () {
         })
     })
 
-    describe.only("Testing notifyAllDeposit", async () => {
+    describe("Testing notifyAllDeposit", async () => {
         before(initialize);
 
         it("Should only revert if wrong declaration is passed", async () => {
@@ -366,8 +366,8 @@ describe("Controller tests", async function () {
             await controller.connect(owner).bulkAddRewardsContract([rewards.address, rewards1.address, rewards2.address])
 
             // Explosive test: To "fix" just comment the line bellow and uncomment the other one
-            await controller.connect(addr2).notifyAllDeposit(declaration);
-            // await controller.connect(addr1).notifyAllDeposit(declaration);
+            // await controller.connect(addr2).notifyAllDeposit(declaration);
+            await controller.connect(addr1).notifyAllDeposit(declaration);
 
             let userVeNewoUnlockDate = await veNewo.unlockDate(address(addr1))
 

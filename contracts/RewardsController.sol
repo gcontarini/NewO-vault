@@ -12,7 +12,7 @@ import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
  * @dev This contract is owned
  */
 contract RewardsController is Owned {
-    // Sum to 32 bytes -> one slot (gas savings $$$)
+    // Sum to 32 bytes
     struct RewardsContract {
         bool isAuth;
         uint248 index;
