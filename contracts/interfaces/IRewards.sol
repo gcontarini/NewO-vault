@@ -21,4 +21,26 @@ interface IRewards {
     function isControllerTrusted(
         address controller
     ) external view returns (bool);
+
+
+    /**
+     * @notice Get the dueDate for a user. This should be equal to
+     * user's veVault unlockDate. If is zero, the user is not registered.
+     * @return dueDate that should be the unlockDate of veVault
+     * @dev returns 0 if user is not registered
+     */
+    function getDueDate(address user) external view returns (uint256);
+
+    /**
+     * @notice Get registered for rewards status of a user
+     * @param user The address of the user
+     * @return bool if the user is registered for rewards
+     * @dev a user is registered if the dueDate is not zero and
+     * the dueDate is equal to the unlockDate of the veVault
+     * and due date is not due yet.
+     * @dev there's a edge case where the user restaked tokens
+     * but kept the same due date. In that case, the user is missing
+     * a notify but the function will return true anyway.
+     */
+    function isRegistered(address user) external view returns (bool);
 }

@@ -144,16 +144,16 @@ contract RewardsController is Owned {
         uint length = rewardsContracts.length;
 
         address[] memory missingPermissions = new address[](length);
-        uint256 missingPermissionsLength = 0;
+        uint256 missingIndex = 0;
         for (uint256 i = 0; i < length; ) {
             address rewardsContract = rewardsContracts[i];
             IRewards rewards = IRewards(rewardsContract);
 
             if (!rewards.isControllerTrusted(address(this))) {
-                missingPermissions[missingPermissionsLength] = rewardsContract;
+                missingPermissions[missingIndex] = rewardsContract;
 
                 unchecked {
-                    missingPermissionsLength++;
+                    missingIndex++;
                 }
             }
 
@@ -163,6 +163,39 @@ contract RewardsController is Owned {
         }
 
         return missingPermissions;
+    }
+
+    /**
+     * @notice Check if user is registered in all rewards contracts
+     * @return The list of rewards addresses contracts that user
+     * is not proper registered
+     * @dev If the user is not eligible for rewards, for example missing
+     * veToken balance, the rewards contract will shown the user as not
+     * registered.
+     */
+    function depositUserStatus() public view returns (address[] memory) {
+        uint length = rewardsContracts.length;
+
+        address[] memory missingNotify = new address[](length);
+        uint256 missingIndex = 0;
+        for (uint256 i = 0; i < length; ) {
+            address rewardsContract = rewardsContracts[i];
+            IRewards rewards = IRewards(rewardsContract);
+
+            if (!rewards.isRegistered(msg.sender)) {
+                missingNotify[missingIndex] = rewardsContract;
+
+                unchecked {
+                    missingIndex++;
+                }
+            }
+
+            unchecked {
+                i++;
+            }
+        }
+
+        return missingNotify;
     }
 
     /* ========== IRewards ========== */

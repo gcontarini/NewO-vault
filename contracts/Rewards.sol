@@ -87,6 +87,25 @@ contract Rewards is
     }
 
     /**
+     * @notice Get registered for rewards status of a user
+     * @param user The address of the user
+     * @return bool if the user is registered for rewards
+     * @dev a user is registered if the dueDate is not zero and
+     * the dueDate is equal to the unlockDate of the veVault
+     * and due date is not due yet.
+     * @dev there's a edge case where the user restaked tokens
+     * but kept the same due date. In that case, the user is missing
+     * a notify but the function will return true anyway.
+     */
+    function isRegistered(address user) public view returns (bool) {
+        uint dueDate = accounts[user].dueDate;
+        return
+            dueDate != 0 &&
+            dueDate > block.timestamp &&
+            dueDate == IVeVault(vault).unlockDate(user);
+    }
+
+    /**
      * @notice Pick the correct date for applying the reward
      * Apply until the end of periodFinish or until
      * unlockDate for funds in the veVault
