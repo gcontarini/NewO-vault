@@ -49,9 +49,8 @@ describe("Rewards tests", async function () {
     let addr1Address: string;
 
     let declaration: string;
-
-    // Legal NEWO DAO Terms and Conditions
-    declaration = "I have read and agree to the Terms and Conditions https://neworder.network/legal"
+    let signatureAddr1: string;
+    let signatureAddr2: string;
 
     // this are functions that returns the balance
     let balanceNewo: (entity: any) => Promise<BigNumberish>;
@@ -96,6 +95,12 @@ describe("Rewards tests", async function () {
         owner = signers[0];
         addr1 = signers[1];
         addr2 = signers[2];
+
+        // Legal NEWO DAO Terms and Conditions
+        declaration = "I have read and agree to the Terms and Conditions https://neworder.network/legal"
+        let hashedDeclaration = ethers.utils.solidityKeccak256(["string"], [declaration])
+        signatureAddr1 = await addr1.signMessage(ethers.utils.arrayify(hashedDeclaration));
+        signatureAddr2 = await addr2.signMessage(ethers.utils.arrayify(hashedDeclaration));
 
         // Impersonate Treasury
         await hre.network.provider.request({
@@ -256,7 +261,7 @@ describe("Rewards tests", async function () {
 
             await rewards.connect(owner).addTrustedController(address(controller))
 
-            await controller.connect(addr1).notifyAllDeposit(declaration)
+            await controller.connect(addr1).notifyAllDeposit(signatureAddr1)
 
             // await rewards.connect(addr1).notifyDeposit(address(addr1));
 
@@ -267,7 +272,7 @@ describe("Rewards tests", async function () {
                 days(90)
             )
 
-            await controller.connect(addr2).notifyAllDeposit(declaration)
+            await controller.connect(addr2).notifyAllDeposit(signatureAddr2)
 
             const { balVeNewo: balVeNewoAddr1 } = await checkBalances(addr1);
             const { balVeNewo: balVeNewoAddr2 } = await checkBalances(addr2);
@@ -276,9 +281,9 @@ describe("Rewards tests", async function () {
 
             await timeTravel(years(3));
 
-            await controller.connect(addr1).getAllRewards(declaration)
+            await controller.connect(addr1).getAllRewards(signatureAddr1)
 
-            await controller.connect(addr2).getAllRewards(declaration)
+            await controller.connect(addr2).getAllRewards(signatureAddr2)
 
             const { balNewo: balNewoAddr1After } = await checkBalances(addr1);
             const { balNewo: balNewoAddr2After } = await checkBalances(addr2);
@@ -315,7 +320,7 @@ describe("Rewards tests", async function () {
 
             expect(await rewards.connect(owner).getDueDate(address(addr1))).to.be.equal(0)
 
-            await controller.connect(addr1).notifyAllDeposit(declaration)
+            await controller.connect(addr1).notifyAllDeposit(signatureAddr1)
 
             let dueDate = await rewards.connect(addr1).getDueDate(address(addr1))
 
@@ -330,7 +335,7 @@ describe("Rewards tests", async function () {
                 days(90)
             )
 
-            await controller.connect(addr2).notifyAllDeposit(declaration)
+            await controller.connect(addr2).notifyAllDeposit(signatureAddr2)
 
             const { balVeNewo: balVeNewoAddr1 } = await checkBalances(addr1);
             const { balVeNewo: balVeNewoAddr2 } = await checkBalances(addr2);
@@ -339,9 +344,9 @@ describe("Rewards tests", async function () {
 
             await timeTravel(days(90));
 
-            await controller.connect(addr1).getAllRewards(declaration)
+            await controller.connect(addr1).getAllRewards(signatureAddr1)
 
-            await controller.connect(addr2).getAllRewards(declaration)
+            await controller.connect(addr2).getAllRewards(signatureAddr2)
 
             const { balNewo: balNewoAddr1After } = await checkBalances(addr1);
             const { balNewo: balNewoAddr2After } = await checkBalances(addr2);
@@ -387,7 +392,7 @@ describe("Rewards tests", async function () {
 
         it("should not allow non-trusted controller to call function", async function () {
             await controller.connect(owner).addRewardsContract(address(rewards));
-            await expect(controller.connect(addr1).notifyAllDeposit(declaration)).to.be.revertedWith("NotTrustedController");
+            await expect(controller.connect(addr1).notifyAllDeposit(signatureAddr1)).to.be.revertedWith("NotTrustedController");
         });
 
         it("should allow trusted controller to call function", async function () {
@@ -403,7 +408,7 @@ describe("Rewards tests", async function () {
                 years(2)
             )
 
-            await controller.connect(addr1).notifyAllDeposit(declaration);
+            await controller.connect(addr1).notifyAllDeposit(signatureAddr1);
         });
     });
 

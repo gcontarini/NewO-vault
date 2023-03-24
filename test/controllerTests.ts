@@ -51,9 +51,9 @@ describe("Controller tests", async function () {
     let addr1Address: string;
 
     let declaration: string;
-
-    // Legal NEWO DAO Terms and Conditions
-    declaration = "I have read and agree to the Terms and Conditions https://neworder.network/legal"
+    let signatureOwner: string;
+    let signatureAddr1: string;
+    let signatureAddr2: string;
 
     // this are functions that returns the balance
     let balanceNewo: (entity: any) => Promise<BigNumberish>;
@@ -99,6 +99,13 @@ describe("Controller tests", async function () {
         addr1 = signers[1];
         addr2 = signers[2];
 
+        // Legal NEWO DAO Terms and Conditions
+        declaration = "I have read and agree to the Terms and Conditions https://neworder.network/legal"
+        let hashedDeclaration = ethers.utils.solidityKeccak256(["string"], [declaration])
+        signatureOwner = await owner.signMessage(ethers.utils.arrayify(hashedDeclaration));
+        signatureAddr1 = await addr1.signMessage(ethers.utils.arrayify(hashedDeclaration));
+        signatureAddr2 = await addr2.signMessage(ethers.utils.arrayify(hashedDeclaration));
+                
         // Impersonate Treasury
         await hre.network.provider.request({
             method: "hardhat_impersonateAccount",
@@ -341,25 +348,19 @@ describe("Controller tests", async function () {
         })
     })
 
-    describe.only("Testing notifyAllDeposit", async () => {
+    describe("Testing notifyAllDeposit", async () => {
         before(initialize);
 
         it("Should only revert if wrong declaration is passed", async () => {
-
             let hashedWrongDeclaration = ethers.utils.solidityKeccak256(["string"], ["wrong declaration"])
 
-            let signature = await owner.signMessage(ethers.utils.arrayify(hashedWrongDeclaration))
+            let wrongSignature = await owner.signMessage(ethers.utils.arrayify(hashedWrongDeclaration))
 
-            await expect(controller.connect(owner).notifyAllDeposit(signature)).to.be.revertedWith("WrongTermsOfUse");
+            await expect(controller.connect(owner).notifyAllDeposit(wrongSignature)).to.be.revertedWith("WrongTermsOfUse");
         })
 
         it("Should not revert even if there is no rewards contracts set", async () => {
-
-            let hashedDeclaration = ethers.utils.solidityKeccak256(["string"], [declaration])
-
-            let signature = await owner.signMessage(ethers.utils.arrayify(hashedDeclaration));
-
-            await expect(controller.connect(owner).notifyAllDeposit(signature)).not.to.be.reverted;
+            await expect(controller.connect(owner).notifyAllDeposit(signatureOwner)).not.to.be.reverted;
         })
 
         it("Should notify deposit in all rewards contracts known", async () => {
@@ -382,11 +383,7 @@ describe("Controller tests", async function () {
 
             await controller.connect(owner).bulkAddRewardsContract([rewards.address, rewards1.address, rewards2.address])
 
-            let hashedDeclaration = ethers.utils.solidityKeccak256(["string"], [declaration])
-
-            let signature = await addr1.signMessage(ethers.utils.arrayify(hashedDeclaration));
-
-            await controller.connect(addr1).notifyAllDeposit(signature);
+            await controller.connect(addr1).notifyAllDeposit(signatureAddr1);
 
             let userVeNewoUnlockDate = await veNewo.unlockDate(address(addr1))
 
@@ -408,11 +405,15 @@ describe("Controller tests", async function () {
         before(initialize);
 
         it("Should only revert if wrong declaration is passed", async () => {
-            await expect(controller.connect(owner).getAllRewards("wrong declaration")).to.be.revertedWith("WrongTermsOfUse");
+            let hashedWrongDeclaration = ethers.utils.solidityKeccak256(["string"], ["wrong declaration"])
+
+            let wrongSignature = await owner.signMessage(ethers.utils.arrayify(hashedWrongDeclaration))
+
+            await expect(controller.connect(owner).getAllRewards(wrongSignature)).to.be.revertedWith("WrongTermsOfUse");
         })
 
         it("Should not revert even if there is no rewards contracts set", async () => {
-            await expect(controller.connect(addr1).getAllRewards(declaration)).not.to.be.reverted;
+            await expect(controller.connect(owner).getAllRewards(signatureOwner)).not.to.be.reverted;
         })
 
         it("Should get all rewards from all rewards contracts known", async () => {
@@ -442,11 +443,11 @@ describe("Controller tests", async function () {
             // await rewards1.connect(owner).addTrustedController(controller.address);
             // await rewards2.connect(owner).addTrustedController(controller.address);
 
-            await controller.connect(addr1).notifyAllDeposit(declaration);
+            await controller.connect(addr1).notifyAllDeposit(signatureAddr1);
 
             await timeTravel(days(90));
 
-            await controller.connect(addr1).getAllRewards(declaration);
+            await controller.connect(addr1).getAllRewards(signatureAddr1);
 
             const { balNewo: balNewoAddr1After } = await checkBalances(addr1);
         })
@@ -455,11 +456,15 @@ describe("Controller tests", async function () {
     describe("Testing exitAllRewards()", async () => {
         before(initialize);
         it("Should only revert if wrong declaration is passed", async () => {
-            await expect(controller.connect(owner).exitAllRewards("wrong declaration")).to.be.revertedWith("WrongTermsOfUse");
+            let hashedWrongDeclaration = ethers.utils.solidityKeccak256(["string"], ["wrong declaration"])
+
+            let wrongSignature = await owner.signMessage(ethers.utils.arrayify(hashedWrongDeclaration))
+            
+            await expect(controller.connect(owner).exitAllRewards(wrongSignature)).to.be.revertedWith("WrongTermsOfUse");
         })
 
         it("Should not revert even if there is no rewards contracts set", async () => {
-            await expect(controller.connect(addr1).exitAllRewards(declaration)).not.to.be.reverted;
+            await expect(controller.connect(addr1).exitAllRewards(signatureAddr1)).not.to.be.reverted;
         })
     })
 
