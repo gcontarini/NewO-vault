@@ -199,6 +199,10 @@ contract RewardsController is Owned {
         return missingNotify;
     }
 
+    /**
+     * @param _messageHash The hash of the message to sign
+     * @return The hash of the message to sign
+     */
     function getEthSignedMessageHash(
         bytes32 _messageHash
     ) public pure returns (bytes32) {
@@ -215,13 +219,19 @@ contract RewardsController is Owned {
             );
     }
 
+    /**
+     * @notice Verify that a message was signed by a specific signer
+     * @param _signer The address of the signer
+     * @param _message The message to verify
+     * @param signature The signature of the message
+     * @return True if the message was signed by the signer
+     */
     function verifySigner(
         address _signer,
         string memory _message,
         bytes memory signature
     ) public pure returns (bool) {
-        bytes32 messageHash = keccak256(abi.encodePacked(_message));
-        bytes32 ethSignedMessageHash = getEthSignedMessageHash(messageHash);
+        bytes32 ethSignedMessageHash = getEthSignedMessageHash(keccak256(abi.encodePacked(_message)));
 
         return ECDSA.recover(ethSignedMessageHash, signature) == _signer;
     }
@@ -302,12 +312,6 @@ contract RewardsController is Owned {
      * @dev The declaration must be exactly the same as the one in the Terms of Use
      */
     modifier onlyConfirmedTermsOfUse(bytes memory signature) {
-        // if (
-        //     keccak256(abi.encode(declaration)) !=
-        //     keccak256(abi.encode(legalDeclaration))
-        // ) {
-        //     revert WrongTermsOfUse();
-        // }
         if (!verifySigner(
             msg.sender,
             legalDeclaration,
