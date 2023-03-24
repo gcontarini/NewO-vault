@@ -5,6 +5,7 @@ import {Owned} from "./Owned.sol";
 import {IRewards} from "./interfaces/IRewards.sol";
 import {IVeVault} from "./interfaces/IVeVault.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 /**
  * @title RewardsController
@@ -198,6 +199,33 @@ contract RewardsController is Owned {
         return missingNotify;
     }
 
+    function getEthSignedMessageHash(
+        bytes32 _messageHash
+    ) public pure returns (bytes32) {
+        /*
+        Signature is produced by signing a keccak256 hash with the following format:
+        "\x19Ethereum Signed Message\n" + len(msg) + msg
+        */
+        return
+            keccak256(
+                abi.encodePacked(
+                    "\x19Ethereum Signed Message:\n32",
+                    _messageHash
+                )
+            );
+    }
+
+    function verifySigner(
+        address _signer,
+        string memory _message,
+        bytes memory signature
+    ) public pure returns (bool) {
+        bytes32 messageHash = keccak256(abi.encodePacked(_message));
+        bytes32 ethSignedMessageHash = getEthSignedMessageHash(messageHash);
+
+        return ECDSA.recover(ethSignedMessageHash, signature) == _signer;
+    }
+
     /* ========== IRewards ========== */
 
     /**
@@ -205,8 +233,8 @@ contract RewardsController is Owned {
      * @dev This must never revert
      */
     function getAllRewards(
-        string calldata declaration
-    ) public onlyConfirmedTermsOfUse(declaration) {
+        bytes calldata signature
+    ) public onlyConfirmedTermsOfUse(signature) {
         uint length = rewardsContracts.length;
         for (uint i = 0; i < length; ) {
             IRewards rewardsContract = IRewards(rewardsContracts[i]);
@@ -224,8 +252,8 @@ contract RewardsController is Owned {
      * @dev This must never revert
      */
     function notifyAllDeposit(
-        string calldata declaration
-    ) public onlyConfirmedTermsOfUse(declaration) {
+        bytes calldata signature
+    ) public onlyConfirmedTermsOfUse(signature) {
         uint length = rewardsContracts.length;
         for (uint i = 0; i < length; ) {
             IRewards rewardsContract = IRewards(rewardsContracts[i]);
@@ -239,15 +267,15 @@ contract RewardsController is Owned {
 
     /**
      * @notice Collect all rewards and exit from  veToken
-     * @param declaration The signup declaration of the user
+     * @param signature The signup declaration of the user
      * @dev This is a convenience hacky function. Can only be used
      * after the user is after its grace period
      */
     function exitAllRewards(
-        string calldata declaration
-    ) public onlyConfirmedTermsOfUse(declaration) {
+        bytes calldata signature
+    ) public onlyConfirmedTermsOfUse(signature) {
         // Collect all rewards
-        getAllRewards(declaration);
+        getAllRewards(signature);
 
         IVeVault veVault = IVeVault(veTokenAddress);
         IERC20 underlying = IERC20(veVault.asset());
@@ -270,14 +298,21 @@ contract RewardsController is Owned {
 
     /**
      * @notice Check if the user has confirmed the terms of use
-     * @param declaration The declaration of the user
+     * @param signature The signed declaration of the user
      * @dev The declaration must be exactly the same as the one in the Terms of Use
      */
-    modifier onlyConfirmedTermsOfUse(string memory declaration) {
-        if (
-            keccak256(abi.encode(declaration)) !=
-            keccak256(abi.encode(legalDeclaration))
-        ) {
+    modifier onlyConfirmedTermsOfUse(bytes memory signature) {
+        // if (
+        //     keccak256(abi.encode(declaration)) !=
+        //     keccak256(abi.encode(legalDeclaration))
+        // ) {
+        //     revert WrongTermsOfUse();
+        // }
+        if (!verifySigner(
+            msg.sender,
+            legalDeclaration,
+            signature
+        )) {
             revert WrongTermsOfUse();
         }
         _;
