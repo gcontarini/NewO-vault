@@ -5,7 +5,7 @@ import {Owned} from "./Owned.sol";
 import {IRewards} from "./interfaces/IRewards.sol";
 import {IVeVault} from "./interfaces/IVeVault.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
-import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
 /**
  * @title RewardsController
@@ -199,42 +199,44 @@ contract RewardsController is Owned {
         return missingNotify;
     }
 
-    /**
-     * @param _messageHash The hash of the message to sign
-     * @return The hash of the message to sign
-     */
-    function getEthSignedMessageHash(
-        bytes32 _messageHash
-    ) public pure returns (bytes32) {
-        /*
-        Signature is produced by signing a keccak256 hash with the following format:
-        "\x19Ethereum Signed Message\n" + len(msg) + msg
-        */
-        return
-            keccak256(
-                abi.encodePacked(
-                    "\x19Ethereum Signed Message:\n32",
-                    _messageHash
-                )
-            );
-    }
+    // /**
+    //  * @param _messageHash The hash of the message to sign
+    //  * @return The hash of the message to sign
+    //  */
+    // function getEthSignedMessageHash(
+    //     bytes32 _messageHash
+    // ) public pure returns (bytes32) {
+    //     /*
+    //     Signature is produced by signing a keccak256 hash with the following format:
+    //     "\x19Ethereum Signed Message\n" + len(msg) + msg
+    //     */
+    //     return
+    //         keccak256(
+    //             abi.encodePacked(
+    //                 "\x19Ethereum Signed Message:\n32",
+    //                 _messageHash
+    //             )
+    //         );
+    // }
 
-    /**
-     * @notice Verify that a message was signed by a specific signer
-     * @param _signer The address of the signer
-     * @param _message The message to verify
-     * @param signature The signature of the message
-     * @return True if the message was signed by the signer
-     */
-    function verifySigner(
-        address _signer,
-        string memory _message,
-        bytes memory signature
-    ) public pure returns (bool) {
-        bytes32 ethSignedMessageHash = getEthSignedMessageHash(keccak256(abi.encodePacked(_message)));
+    // /**
+    //  * @notice Verify that a message was signed by a specific signer
+    //  * @param _signer The address of the signer
+    //  * @param _message The message to verify
+    //  * @param signature The signature of the message
+    //  * @return True if the message was signed by the signer
+    //  */
+    // function verifySigner(
+    //     address _signer,
+    //     string memory _message,
+    //     bytes memory signature
+    // ) public pure returns (bool) {
+    //     bytes32 ethSignedMessageHash = getEthSignedMessageHash(
+    //         keccak256(abi.encodePacked(_message))
+    //     );
 
-        return ECDSA.recover(ethSignedMessageHash, signature) == _signer;
-    }
+    //     return ECDSA.recover(ethSignedMessageHash, signature) == _signer;
+    // }
 
     /* ========== IRewards ========== */
 
@@ -312,11 +314,13 @@ contract RewardsController is Owned {
      * @dev The declaration must be exactly the same as the one in the Terms of Use
      */
     modifier onlyConfirmedTermsOfUse(bytes memory signature) {
-        if (!verifySigner(
-            msg.sender,
-            legalDeclaration,
-            signature
-        )) {
+        if (
+            !SignatureChecker.isValidSignatureNow(
+                msg.sender,
+                keccak256(abi.encodePacked(legalDeclaration)),
+                signature
+            )
+        ) {
             revert WrongTermsOfUse();
         }
         _;
