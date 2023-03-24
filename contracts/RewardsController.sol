@@ -27,14 +27,14 @@ contract RewardsController is Owned {
     address public veTokenAddress;
 
     string public legalDeclaration;
-    bytes32 public legalDeclarationHash;
+    bytes32 private _legalDeclarationHash;
 
     /* ========== CONSTRUCTOR ========== */
 
     constructor(address owner_, address veToken_) Owned(owner_) {
         veTokenAddress = veToken_;
         legalDeclaration = "I have read and agree to the Terms and Conditions https://neworder.network/legal";
-        legalDeclarationHash = keccak256(
+        _legalDeclarationHash = keccak256(
             abi.encodePacked(
                 "\x19Ethereum Signed Message:\n32",
                 keccak256(abi.encodePacked(legalDeclaration))
@@ -52,7 +52,7 @@ contract RewardsController is Owned {
         string calldata declaration
     ) public onlyOwner {
         legalDeclaration = declaration;
-        legalDeclarationHash = keccak256(
+        _legalDeclarationHash = keccak256(
             abi.encodePacked(
                 "\x19Ethereum Signed Message:\n32",
                 keccak256(abi.encodePacked(declaration))
@@ -291,7 +291,7 @@ contract RewardsController is Owned {
         if (
             !SignatureChecker.isValidSignatureNow(
                 msg.sender,
-                legalDeclarationHash,
+                _legalDeclarationHash,
                 signature
             )
         ) {
