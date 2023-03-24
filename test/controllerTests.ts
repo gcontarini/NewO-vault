@@ -346,27 +346,18 @@ describe("Controller tests", async function () {
 
         it("Should only revert if wrong declaration is passed", async () => {
 
+            let hashedWrongDeclaration = ethers.utils.solidityKeccak256(["string"], ["wrong declaration"])
 
-            let hashedWrongDeclaration = ethers.utils.keccak256(ethers.utils.solidityPack(["string"], ["wrong declaration"]))
-
-            let signature = await owner.signMessage(hashedWrongDeclaration);
+            let signature = await owner.signMessage(ethers.utils.arrayify(hashedWrongDeclaration))
 
             await expect(controller.connect(owner).notifyAllDeposit(signature)).to.be.revertedWith("WrongTermsOfUse");
         })
 
         it("Should not revert even if there is no rewards contracts set", async () => {
 
-            console.log("testing declaration: ", declaration);
+            let hashedDeclaration = ethers.utils.solidityKeccak256(["string"], [declaration])
 
-            let hashedDeclaration = ethers.utils.keccak256(ethers.utils.solidityPack(["string"], [declaration]))
-
-            console.log("testgin hashed declaration: ", hashedDeclaration);
-
-            let signature = await owner.signMessage(hashedDeclaration);
-
-            console.log("testgin signature: ", signature);
-
-            console.log("owner address: ", address(owner));
+            let signature = await owner.signMessage(ethers.utils.arrayify(hashedDeclaration));
 
             await expect(controller.connect(owner).notifyAllDeposit(signature)).not.to.be.reverted;
         })
@@ -391,9 +382,11 @@ describe("Controller tests", async function () {
 
             await controller.connect(owner).bulkAddRewardsContract([rewards.address, rewards1.address, rewards2.address])
 
-            // Explosive test: To "fix" just comment the line bellow and uncomment the other one
-            // await controller.connect(addr2).notifyAllDeposit(declaration);
-            await controller.connect(addr1).notifyAllDeposit(declaration);
+            let hashedDeclaration = ethers.utils.solidityKeccak256(["string"], [declaration])
+
+            let signature = await addr1.signMessage(ethers.utils.arrayify(hashedDeclaration));
+
+            await controller.connect(addr1).notifyAllDeposit(signature);
 
             let userVeNewoUnlockDate = await veNewo.unlockDate(address(addr1))
 

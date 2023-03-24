@@ -313,11 +313,16 @@ contract RewardsController is Owned {
      * @param signature The signed declaration of the user
      * @dev The declaration must be exactly the same as the one in the Terms of Use
      */
-    modifier onlyConfirmedTermsOfUse(bytes memory signature) {
+    modifier onlyConfirmedTermsOfUse(bytes calldata signature) {
         if (
             !SignatureChecker.isValidSignatureNow(
                 msg.sender,
-                keccak256(abi.encodePacked(legalDeclaration)),
+                keccak256(
+                    abi.encodePacked(
+                        "\x19Ethereum Signed Message:\n32",
+                        keccak256(abi.encodePacked(legalDeclaration))
+                    )
+                ),
                 signature
             )
         ) {
