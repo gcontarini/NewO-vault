@@ -341,15 +341,34 @@ describe("Controller tests", async function () {
         })
     })
 
-    describe("Testing notifyAllDeposit", async () => {
+    describe.only("Testing notifyAllDeposit", async () => {
         before(initialize);
 
         it("Should only revert if wrong declaration is passed", async () => {
-            await expect(controller.connect(owner).notifyAllDeposit("wrong declaration")).to.be.revertedWith("WrongTermsOfUse");
+
+
+            let hashedWrongDeclaration = ethers.utils.keccak256(ethers.utils.solidityPack(["string"], ["wrong declaration"]))
+
+            let signature = await owner.signMessage(hashedWrongDeclaration);
+
+            await expect(controller.connect(owner).notifyAllDeposit(signature)).to.be.revertedWith("WrongTermsOfUse");
         })
 
         it("Should not revert even if there is no rewards contracts set", async () => {
-            await expect(controller.connect(addr1).notifyAllDeposit(declaration)).not.to.be.reverted;
+
+            console.log("testing declaration: ", declaration);
+
+            let hashedDeclaration = ethers.utils.keccak256(ethers.utils.solidityPack(["string"], [declaration]))
+
+            console.log("testgin hashed declaration: ", hashedDeclaration);
+
+            let signature = await owner.signMessage(hashedDeclaration);
+
+            console.log("testgin signature: ", signature);
+
+            console.log("owner address: ", address(owner));
+
+            await expect(controller.connect(owner).notifyAllDeposit(signature)).not.to.be.reverted;
         })
 
         it("Should notify deposit in all rewards contracts known", async () => {
@@ -425,7 +444,7 @@ describe("Controller tests", async function () {
 
             await controller.connect(owner).bulkAddRewardsContract([rewards.address, rewards1.address, rewards2.address])
 
-            // Thought we would need this. 
+            // Thought we would need this.
             // await rewards.connect(owner).addTrustedController(controller.address);
             // await rewards1.connect(owner).addTrustedController(controller.address);
             // await rewards2.connect(owner).addTrustedController(controller.address);
@@ -435,7 +454,7 @@ describe("Controller tests", async function () {
             await timeTravel(days(90));
 
             await controller.connect(addr1).getAllRewards(declaration);
-        
+
             const { balNewo: balNewoAddr1After } = await checkBalances(addr1);
         })
     })
