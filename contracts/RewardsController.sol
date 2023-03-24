@@ -27,12 +27,19 @@ contract RewardsController is Owned {
     address public veTokenAddress;
 
     string public legalDeclaration;
+    bytes32 public legalDeclarationHash;
 
     /* ========== CONSTRUCTOR ========== */
 
     constructor(address owner_, address veToken_) Owned(owner_) {
         veTokenAddress = veToken_;
         legalDeclaration = "I have read and agree to the Terms and Conditions https://neworder.network/legal";
+        legalDeclarationHash = keccak256(
+            abi.encodePacked(
+                "\x19Ethereum Signed Message:\n32",
+                keccak256(abi.encodePacked(legalDeclaration))
+            )
+        );
     }
 
     /* ========== FUNCTIONS ========== */
@@ -45,6 +52,12 @@ contract RewardsController is Owned {
         string calldata declaration
     ) public onlyOwner {
         legalDeclaration = declaration;
+        legalDeclarationHash = keccak256(
+            abi.encodePacked(
+                "\x19Ethereum Signed Message:\n32",
+                keccak256(abi.encodePacked(declaration))
+            )
+        );
     }
 
     /**
@@ -199,45 +212,6 @@ contract RewardsController is Owned {
         return missingNotify;
     }
 
-    // /**
-    //  * @param _messageHash The hash of the message to sign
-    //  * @return The hash of the message to sign
-    //  */
-    // function getEthSignedMessageHash(
-    //     bytes32 _messageHash
-    // ) public pure returns (bytes32) {
-    //     /*
-    //     Signature is produced by signing a keccak256 hash with the following format:
-    //     "\x19Ethereum Signed Message\n" + len(msg) + msg
-    //     */
-    //     return
-    //         keccak256(
-    //             abi.encodePacked(
-    //                 "\x19Ethereum Signed Message:\n32",
-    //                 _messageHash
-    //             )
-    //         );
-    // }
-
-    // /**
-    //  * @notice Verify that a message was signed by a specific signer
-    //  * @param _signer The address of the signer
-    //  * @param _message The message to verify
-    //  * @param signature The signature of the message
-    //  * @return True if the message was signed by the signer
-    //  */
-    // function verifySigner(
-    //     address _signer,
-    //     string memory _message,
-    //     bytes memory signature
-    // ) public pure returns (bool) {
-    //     bytes32 ethSignedMessageHash = getEthSignedMessageHash(
-    //         keccak256(abi.encodePacked(_message))
-    //     );
-
-    //     return ECDSA.recover(ethSignedMessageHash, signature) == _signer;
-    // }
-
     /* ========== IRewards ========== */
 
     /**
@@ -317,12 +291,7 @@ contract RewardsController is Owned {
         if (
             !SignatureChecker.isValidSignatureNow(
                 msg.sender,
-                keccak256(
-                    abi.encodePacked(
-                        "\x19Ethereum Signed Message:\n32",
-                        keccak256(abi.encodePacked(legalDeclaration))
-                    )
-                ),
+                legalDeclarationHash,
                 signature
             )
         ) {
