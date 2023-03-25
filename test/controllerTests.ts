@@ -105,7 +105,7 @@ describe("Controller tests", async function () {
         signatureOwner = await owner.signMessage(ethers.utils.arrayify(hashedDeclaration));
         signatureAddr1 = await addr1.signMessage(ethers.utils.arrayify(hashedDeclaration));
         signatureAddr2 = await addr2.signMessage(ethers.utils.arrayify(hashedDeclaration));
-                
+
         // Impersonate Treasury
         await hre.network.provider.request({
             method: "hardhat_impersonateAccount",
@@ -373,7 +373,7 @@ describe("Controller tests", async function () {
 
             await controller.connect(addr1).notifyAllDeposit(signatureAddr1);
 
-            // expect(await controller.connect(addr1).depositUserStatus()).to.be.equal(ethers.constants.AddressZero);
+            expect(await controller.connect(addr1).depositUserStatus(address(addr1))).to.deep.equal([ethers.constants.AddressZero, ethers.constants.AddressZero, ethers.constants.AddressZero]);
         })
     })
 
@@ -414,6 +414,16 @@ describe("Controller tests", async function () {
 
             await controller.connect(addr1).notifyAllDeposit(signatureAddr1);
 
+            let rewardsIsRegistered = await rewards.isRegistered(address(addr1))
+
+            let rewards1IsRegistered = await rewards1.isRegistered(address(addr1))
+
+            let rewards2IsRegistered = await rewards2.isRegistered(address(addr1))
+
+            expect(rewardsIsRegistered).to.be.true;
+            expect(rewards1IsRegistered).to.be.true;
+            expect(rewards2IsRegistered).to.be.true;
+
             let userVeNewoUnlockDate = await veNewo.unlockDate(address(addr1))
 
             let rewardsDueDate = await rewards.getDueDate(address(addr1))
@@ -433,12 +443,14 @@ describe("Controller tests", async function () {
     describe("Testing getAllRewards()", async () => {
         before(initialize);
 
-        it("Should only revert if wrong declaration is passed", async () => {
+        it("Should only revert if wrong declaration is passed or the signer is not the caller", async () => {
             let hashedWrongDeclaration = ethers.utils.solidityKeccak256(["string"], ["wrong declaration"])
 
             let wrongSignature = await owner.signMessage(ethers.utils.arrayify(hashedWrongDeclaration))
 
             await expect(controller.connect(owner).getAllRewards(wrongSignature)).to.be.revertedWith("WrongTermsOfUse");
+
+            await expect(controller.connect(addr1).getAllRewards(signatureAddr2)).to.be.revertedWith("WrongTermsOfUse");
         })
 
         it("Should not revert even if there is no rewards contracts set", async () => {
@@ -446,16 +458,17 @@ describe("Controller tests", async function () {
         })
 
         it("Should get all rewards from all rewards contracts known", async () => {
-            const rewardAmount = 3000000;
-            await setReward(rewardAmount / 3, days(90), rewards);
+            const rewardAmount = 1000000;
 
-            await setReward(rewardAmount / 3, days(90), rewards1);
+            const totalRewards = (parseNewo(rewardAmount) as BigNumber).mul(3)
 
-            await setReward(rewardAmount / 3, days(90), rewards2);
+            await setReward(rewardAmount, days(90), rewards);
+
+            await setReward(rewardAmount, days(90), rewards1);
+
+            await setReward(rewardAmount, days(90), rewards2);
 
             await newoToken.connect(treasury).transfer(address(addr1), parseNewo(1000));
-
-            const { balNewo: balNewoAddr1Before } = await checkBalances(addr1);
 
             await veNewo
                 .connect(addr1)
@@ -465,34 +478,41 @@ describe("Controller tests", async function () {
                 years(2)
             )
 
-            await controller.connect(owner).bulkAddRewardsContract([rewards.address, rewards1.address, rewards2.address])
+            const { balNewo: balNewoAddr1Before } = await checkBalances(addr1);
 
-            // Thought we would need this.
-            // await rewards.connect(owner).addTrustedController(controller.address);
-            // await rewards1.connect(owner).addTrustedController(controller.address);
-            // await rewards2.connect(owner).addTrustedController(controller.address);
+            await controller.connect(owner).bulkAddRewardsContract([rewards.address, rewards1.address, rewards2.address])
 
             await controller.connect(addr1).notifyAllDeposit(signatureAddr1);
 
-            await timeTravel(days(90));
+            await timeTravel(days(91));
 
             await controller.connect(addr1).getAllRewards(signatureAddr1);
 
             const { balNewo: balNewoAddr1After } = await checkBalances(addr1);
+
+            const balaceDiff = (balNewoAddr1After as BigNumber).sub(balNewoAddr1Before as BigNumber)
+
+            // we are accepting +/- 0.001% rouding errors
+            const lowerBound = (totalRewards as BigNumber).mul(99999).div(100000);
+            const upperBound = (totalRewards as BigNumber).mul(100001).div(100000);
+
+            expect(balaceDiff).to.be.gte(lowerBound).and.lte(upperBound)
         })
     })
 
     describe("Testing exitAllRewards()", async () => {
         before(initialize);
-        it("Should only revert if wrong declaration is passed", async () => {
+        it("Should revert if wrong declaration is passed or the signer is not the caller", async () => {
             let hashedWrongDeclaration = ethers.utils.solidityKeccak256(["string"], ["wrong declaration"])
 
             let wrongSignature = await owner.signMessage(ethers.utils.arrayify(hashedWrongDeclaration))
-            
+
             await expect(controller.connect(owner).exitAllRewards(wrongSignature)).to.be.revertedWith("WrongTermsOfUse");
+
+            await expect(controller.connect(addr1).exitAllRewards(signatureAddr2)).to.be.revertedWith("WrongTermsOfUse");
         })
 
-        it("Should not revert even if there is no rewards contracts set", async () => {
+        it("Should not revert if there is no rewards contracts set", async () => {
             await expect(controller.connect(addr1).exitAllRewards(signatureAddr1)).not.to.be.reverted;
         })
     })

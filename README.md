@@ -189,7 +189,7 @@ All users after locking Newo on the veVault need to notifyDeposit() in every rew
 
 To tell if an user is registered for rewards on a rewards contract, you can call isRegistered(address user) on the reward contract. Returns true if the user is registered for rewards and false if is not.
 
-You can also call depositUserStatus() on the controller to check if the msg.sender is registered on all rewards contracts known by the controller. It will return an array of rewards contract addresses where the user is not registered, if any.
+You can also call depositUserStatus(address user) on the controller to check if user is registered on all rewards contracts known by the controller. It will return an array of rewards contract addresses where the user is not registered, if any.
 
 # Contracts
 

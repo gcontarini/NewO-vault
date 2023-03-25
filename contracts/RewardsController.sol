@@ -181,13 +181,14 @@ contract RewardsController is Owned {
 
     /**
      * @notice Check if user is registered in all rewards contracts
+     * @param user address that will have the status checked.
      * @return The list of rewards addresses contracts that user
      * is not proper registered
      * @dev If the user is not eligible for rewards, for example missing
      * veToken balance, the rewards contract will shown the user as not
      * registered.
      */
-    function depositUserStatus() public view returns (address[] memory) {
+    function depositUserStatus(address user) public view returns (address[] memory) {
         uint length = rewardsContracts.length;
 
         address[] memory missingNotify = new address[](length);
@@ -196,7 +197,7 @@ contract RewardsController is Owned {
             address rewardsContract = rewardsContracts[i];
             IRewards rewards = IRewards(rewardsContract);
 
-            if (!rewards.isRegistered(msg.sender)) {
+            if (!rewards.isRegistered(user)) {
                 missingNotify[missingIndex] = rewardsContract;
 
                 unchecked {
