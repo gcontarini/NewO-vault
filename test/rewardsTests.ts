@@ -461,6 +461,8 @@ describe("Rewards tests", async function () {
 
             // await controller.connect(addr1).notifyAllDeposit(signatureAddr1);
 
+            // expect(await rewards.isRegistered(address(addr1))).to.be.true;
+
             await timeTravel(days(90));
 
             await controller.connect(addr1).getAllRewards(signatureAddr1);

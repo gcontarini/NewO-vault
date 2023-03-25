@@ -348,6 +348,35 @@ describe("Controller tests", async function () {
         })
     })
 
+    describe("Testing depositUserStatus()", async () => {
+        before(initialize);
+
+        it("Should return NULL, because user is registered to all contracts", async () => {
+            const rewardAmount = 3000000;
+            await setReward(rewardAmount / 3, days(180), rewards);
+
+            await setReward(rewardAmount / 3, days(180), rewards1);
+
+            await setReward(rewardAmount / 3, days(180), rewards2);
+
+            await newoToken.connect(treasury).transfer(address(addr1), parseNewo(1000));
+
+            await veNewo
+                .connect(addr1)
+            ["deposit(uint256,address,uint256)"](
+                parseNewo(1000),
+                address(addr1),
+                days(180)
+            )
+
+            await controller.connect(owner).bulkAddRewardsContract([rewards.address, rewards1.address, rewards2.address])
+
+            await controller.connect(addr1).notifyAllDeposit(signatureAddr1);
+
+            // expect(await controller.connect(addr1).depositUserStatus()).to.be.equal(ethers.constants.AddressZero);
+        })
+    })
+
     describe("Testing notifyAllDeposit", async () => {
         before(initialize);
 
