@@ -412,6 +412,67 @@ describe("Rewards tests", async function () {
         });
     });
 
+    describe.only("Testing isRegistered", () => {
+        before(initialize);
+
+        const rewardAmount = 3000000;
+
+        it("should return false if not registered", async function () {
+            expect(await rewards.isRegistered(address(addr1))).to.be.false;
+        });
+
+        it("should return true if registered", async function () {
+            await setReward(rewardAmount / 3, days(180));
+
+            await newoToken.connect(treasury).transfer(address(addr1), parseNewo(1000));
+
+            await veNewo
+                .connect(addr1)
+            ["deposit(uint256,address,uint256)"](
+                parseNewo(1000),
+                address(addr1),
+                days(180)
+            )
+            
+            await rewards.connect(owner).addTrustedController(address(controller));
+
+            await controller.connect(owner).addRewardsContract(address(rewards));
+
+            await controller.connect(addr1).notifyAllDeposit(signatureAddr1);
+            
+            expect(await rewards.isRegistered(address(addr1))).to.be.true;
+        });
+
+        it("should receive right amount after restaking without notifying", async function () {
+            await timeTravel(days(90));
+
+            const { balNewo: balNewoAddr1Before } = await checkBalances(addr1);
+            const { balVeNewo: balVeNewoAddr1Before } = await checkBalances(addr1);
+
+            await newoToken.connect(treasury).transfer(address(addr1), parseNewo(1000));
+
+            await veNewo
+                .connect(addr1)
+            ["deposit(uint256,address,uint256)"](
+                parseNewo(1000),
+                address(addr1),
+                days(90)
+            )
+
+            // await controller.connect(addr1).notifyAllDeposit(signatureAddr1);
+
+            await timeTravel(days(90));
+
+            await controller.connect(addr1).getAllRewards(signatureAddr1);
+
+            const { balNewo: balNewoAddr1After } = await checkBalances(addr1);
+            const { balVeNewo: balVeNewoAddr1After } = await checkBalances(addr1);
+
+            expect(balNewoAddr1After).to.be.gt(balNewoAddr1Before);
+            expect(balVeNewoAddr1After).to.be.gt(balVeNewoAddr1Before);
+        });
+    });
+
     async function setReward(rewardAmount: number, distributionPeriod: number) {
 
         const tokensToReward = parseNewo(rewardAmount);
