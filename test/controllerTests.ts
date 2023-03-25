@@ -351,13 +351,11 @@ describe("Controller tests", async function () {
     describe("Testing depositUserStatus()", async () => {
         before(initialize);
 
-        it("Should return NULL, because user is registered to all contracts", async () => {
+        it("Should return rewards and rewards1 addresses", async () => {
             const rewardAmount = 3000000;
             await setReward(rewardAmount / 3, days(180), rewards);
 
             await setReward(rewardAmount / 3, days(180), rewards1);
-
-            await setReward(rewardAmount / 3, days(180), rewards2);
 
             await newoToken.connect(treasury).transfer(address(addr1), parseNewo(1000));
 
@@ -369,8 +367,26 @@ describe("Controller tests", async function () {
                 days(180)
             )
 
-            await controller.connect(owner).bulkAddRewardsContract([rewards.address, rewards1.address, rewards2.address])
+            await controller.connect(owner).bulkAddRewardsContract([rewards.address, rewards1.address])
 
+            // await controller.connect(addr1).notifyAllDeposit(signatureAddr1);
+            
+            expect(await controller.connect(addr1).depositUserStatus(address(addr1))).to.deep.equal([rewards.address, rewards1.address]);
+        })
+
+        it("Should return rewards2 address", async () => {
+            const rewardAmount = 3000000;
+
+            await controller.connect(addr1).notifyAllDeposit(signatureAddr1);
+            
+            await setReward(rewardAmount / 3, days(180), rewards2);
+
+            await controller.connect(owner).bulkAddRewardsContract([rewards2.address])
+
+            expect(await controller.connect(addr1).depositUserStatus(address(addr1))).to.deep.equal([rewards2.address, ethers.constants.AddressZero, ethers.constants.AddressZero]);
+        })
+
+        it("Should return an array of NULL after notifying", async () => {
             await controller.connect(addr1).notifyAllDeposit(signatureAddr1);
 
             expect(await controller.connect(addr1).depositUserStatus(address(addr1))).to.deep.equal([ethers.constants.AddressZero, ethers.constants.AddressZero, ethers.constants.AddressZero]);
