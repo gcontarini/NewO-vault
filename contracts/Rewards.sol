@@ -9,19 +9,27 @@ import "./interfaces/IVeVault.sol";
 // Inheritance
 import "./RewardsDistributionRecipient.sol";
 import "./Pausable.sol";
+import "./Trustable.sol";
 
+// Custom errors
 error RewardTooHigh();
 error RewardPeriodNotComplete(uint256 finish);
 error NotWhitelisted();
 error InsufficientBalance(uint256 available, uint256 required);
+error UserHasNoVeToken();
 
-/** 
- * @title Implements a reward system which grant rewards based on veToken balance 
+/**
+ * @title Implements a reward system which grant rewards based on veToken balance
  * @author gcontarini jocorrei
  * @notice This implementation was inspired by the StakingReward contract from Synthetixio
- * @dev Implement a new constructor to deploy this contract 
+ * @dev Implement a new constructor to deploy this contract
  */
-contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
+contract Rewards is
+    RewardsDistributionRecipient,
+    ReentrancyGuard,
+    Pausable,
+    Trustable
+{
     using SafeERC20 for IERC20;
 
     struct Account {
@@ -33,15 +41,15 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
     /* ========== STATE VARIABLES ========== */
 
     address public rewardsToken;
-    address public vault;                    // address of the ve vault
-    uint256 public periodFinish = 0;         // end of the rewardDuration period
-    uint256 public rewardRate = 0;           // rewards per second distributed by the contract ==> rewardavailable / rewardDuration
+    address public vault; // address of the ve vault
+    uint256 public periodFinish = 0; // end of the rewardDuration period
+    uint256 public rewardRate = 0; // rewards per second distributed by the contract ==> rewardavailable / rewardDuration
     uint256 public rewardsDuration = 7 days; // the rewards inside the contract are gone be distributed during this period
-    uint256 public lastUpdateTime;           // when the reward period started
-    uint256 public rewardPerTokenStored;     // amounts of reward per staked token
+    uint256 public lastUpdateTime; // when the reward period started
+    uint256 public rewardPerTokenStored; // amounts of reward per staked token
 
     mapping(address => Account) public accounts;
-    
+
     // Only allow recoverERC20 from this list
     mapping(address => bool) public whitelistRecoverERC20;
 
@@ -69,21 +77,55 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
     }
 
     /**
+     * @notice Get the dueDate for a user. This should be equal to
+     * user's veVault unlockDate. If is zero, the user is not registered.
+     * @return dueDate that should be the unlockDate of veVault
+     * @dev returns 0 if user is not registered
+     */
+    function getDueDate(address user) public view returns (uint256) {
+        return accounts[user].dueDate;
+    }
+
+    /**
+     * @notice Get registered for rewards status of a user
+     * @param user The address of the user
+     * @return bool if the user is registered for rewards
+     * @dev a user is registered if the dueDate is not zero and
+     * the dueDate is equal to the unlockDate of the veVault
+     * and due date is not due yet.
+     * @dev there's a edge case where the user restaked tokens
+     * but kept the same due date. In that case, the user is missing
+     * a notify but the function will return true anyway.
+     */
+    function isRegistered(address user) public view returns (bool) {
+        uint dueDate = accounts[user].dueDate;
+        return
+            dueDate != 0 &&
+            dueDate > block.timestamp &&
+            dueDate == IVeVault(vault).unlockDate(user);
+    }
+
+    /**
      * @notice Pick the correct date for applying the reward
      * Apply until the end of periodFinish or until
      * unlockDate for funds in the veVault
      * @return date which the reward is applicable for and address
      */
-    function lastTimeRewardApplicable(address owner) public view returns (uint256) {
+    function lastTimeRewardApplicable(
+        address owner
+    ) public view returns (uint256) {
         if (owner != address(0) && accounts[owner].dueDate < periodFinish) {
-            return block.timestamp < accounts[owner].dueDate ? block.timestamp : accounts[owner].dueDate;
+            return
+                block.timestamp < accounts[owner].dueDate
+                    ? block.timestamp
+                    : accounts[owner].dueDate;
         }
         return block.timestamp < periodFinish ? block.timestamp : periodFinish;
     }
 
     /**
      * @notice Calculate how much reward must be given for an user
-     * per token in veVault. 
+     * per token in veVault.
      * @dev If dueDate is less than the period finish,
      * a "negative" reward is applied to ensure that
      * rewards are applied only until this date.
@@ -96,40 +138,40 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
             return rewardPerTokenStored;
         }
         uint256 userLastTime = lastTimeRewardApplicable(owner);
-        
+
         // Apply a negative reward per token when
         // due date is already over.
         if (userLastTime < lastUpdateTime) {
-            return rewardPerTokenStored
-                - ((lastUpdateTime - userLastTime)
-                    * rewardRate
-                    * 1e18
-                    / _totalSupply
-                );
+            return
+                rewardPerTokenStored -
+                (((lastUpdateTime - userLastTime) * rewardRate * 1e18) /
+                    _totalSupply);
         }
-        return rewardPerTokenStored
-                + ((userLastTime - lastUpdateTime)
-                    * rewardRate
-                    * 1e18
-                    / _totalSupply
-                );
+        return
+            rewardPerTokenStored +
+            (((userLastTime - lastUpdateTime) * rewardRate * 1e18) /
+                _totalSupply);
     }
-    
+
     /**
-     * @notice Calculates how much rewards a staker earned 
+     * @notice Calculates how much rewards a staker earned
      * until this moment.
      * @dev Only apply reward until period finish or unlock date.
-     * @return amount of reward available to claim 
+     * @return amount of reward available to claim
      */
     function earned(address owner) public view returns (uint256) {
+        if (accounts[owner].dueDate == 0) {
+            revert UserHasNoVeToken();
+        }
         uint256 currentReward = rewardPerToken(owner);
         uint256 paidReward = accounts[owner].rewardPerTokenPaid;
 
         uint256 moreReward = 0;
         if (currentReward > paidReward) {
-            moreReward = IVeVault(vault).balanceOf(owner)
-                            * (currentReward - paidReward)
-                            / 1e18;
+            moreReward =
+                (IVeVault(vault).balanceOf(owner) *
+                    (currentReward - paidReward)) /
+                1e18;
         }
         return accounts[owner].rewards + moreReward;
     }
@@ -149,8 +191,19 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
      * contract will account user's rewards.
      * @return account full information
      */
-    function notifyDeposit() public updateReward(msg.sender) returns(Account memory) {
-        emit NotifyDeposit(msg.sender, accounts[owner].rewardPerTokenPaid, accounts[owner].dueDate);
+    function notifyDeposit(
+        address user
+    )
+        public
+        onlyTrustedControllers
+        updateReward(user)
+        returns (Account memory)
+    {
+        emit NotifyDeposit(
+            user,
+            accounts[owner].rewardPerTokenPaid,
+            accounts[owner].dueDate
+        );
         return accounts[owner];
     }
 
@@ -159,13 +212,15 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
      * @dev In case of no rewards claimable
      * just update the user status and do nothing.
      */
-    function getReward() public updateReward(msg.sender) {
-        uint256 reward = accounts[msg.sender].rewards;
+    function getReward(
+        address user
+    ) public onlyTrustedControllers updateReward(user) {
+        uint256 reward = accounts[user].rewards;
         if (reward <= 0) return;
-        
-        accounts[msg.sender].rewards = 0;
-        IERC20(rewardsToken).safeTransfer(msg.sender, reward);
-        emit RewardPaid(msg.sender, reward);
+
+        accounts[user].rewards = 0;
+        IERC20(rewardsToken).safeTransfer(user, reward);
+        emit RewardPaid(user, reward);
     }
 
     /* ========== RESTRICTED FUNCTIONS ========== */
@@ -175,11 +230,9 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
      * for ve holders.
      * @param reward: amount of tokens to be distributed
      */
-    function notifyRewardAmount(uint256 reward)
-            external
-            override 
-            onlyRewardsDistribution 
-            updateReward(address(0)) {
+    function notifyRewardAmount(
+        uint256 reward
+    ) external override onlyRewardsDistribution updateReward(address(0)) {
         if (block.timestamp >= periodFinish) {
             rewardRate = reward / rewardsDuration;
         } else {
@@ -199,30 +252,36 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
         periodFinish = block.timestamp + rewardsDuration;
         emit RewardAdded(reward);
     }
-    
+
     /**
      * @notice Allow owner to change reward duration
      * Only allow the change if period finish has already ended
      */
     function setRewardsDuration(uint256 _rewardsDuration) external onlyOwner {
-        if (block.timestamp <= periodFinish) revert RewardPeriodNotComplete(periodFinish);
+        if (block.timestamp <= periodFinish)
+            revert RewardPeriodNotComplete(periodFinish);
 
         rewardsDuration = _rewardsDuration;
         emit RewardsDurationUpdated(rewardsDuration);
     }
 
     /**
-     * @notice Added to support to recover ERC20 token within a whitelist 
+     * @notice Added to support to recover ERC20 token within a whitelist
      */
-    function recoverERC20(address tokenAddress, uint256 tokenAmount) external onlyOwner {
-        if (whitelistRecoverERC20[tokenAddress] == false) revert NotWhitelisted();
-        
+    function recoverERC20(
+        address tokenAddress,
+        uint256 tokenAmount
+    ) external onlyOwner {
+        if (whitelistRecoverERC20[tokenAddress] == false)
+            revert NotWhitelisted();
+
         uint balance = IERC20(tokenAddress).balanceOf(address(this));
-        if (balance < tokenAmount) revert InsufficientBalance({
+        if (balance < tokenAmount)
+            revert InsufficientBalance({
                 available: balance,
                 required: tokenAmount
-        });
-        
+            });
+
         IERC20(tokenAddress).safeTransfer(owner, tokenAmount);
         emit Recovered(tokenAddress, tokenAmount);
     }
@@ -233,18 +292,24 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
      * that owner is a multisig address. Also, it emits an event
      * of changes in the ERC20 whitelist as a safety check.
      * @notice Owner can whitelist an ERC20 to recover it afterwards.
-     * Emits and event to notify all users about it 
+     * Emits and event to notify all users about it
      * @param flag: true to allow recover for the token
      */
-    function changeWhitelistRecoverERC20(address tokenAddress, bool flag) external onlyOwner {
+    function changeWhitelistRecoverERC20(
+        address tokenAddress,
+        bool flag
+    ) external onlyOwner {
         whitelistRecoverERC20[tokenAddress] = flag;
         emit ChangeWhitelistERC20(tokenAddress, flag);
     }
 
     /**
-     * @notice Added to support to recover ERC721 
+     * @notice Added to support to recover ERC721
      */
-    function recoverERC721(address tokenAddress, uint256 tokenId) external onlyOwner {
+    function recoverERC721(
+        address tokenAddress,
+        uint256 tokenId
+    ) external onlyOwner {
         IERC721(tokenAddress).safeTransferFrom(address(this), owner, tokenId);
         emit RecoveredNFT(tokenAddress, tokenId);
     }
@@ -274,8 +339,15 @@ contract Rewards is RewardsDistributionRecipient, ReentrancyGuard, Pausable {
     event RewardAdded(uint256 reward);
     event RewardPaid(address indexed user, uint256 reward);
     event RewardsDurationUpdated(uint256 newDuration);
-    event NotifyDeposit(address indexed user, uint256 rewardPerTokenPaid, uint256 dueDate);
+    event NotifyDeposit(
+        address indexed user,
+        uint256 rewardPerTokenPaid,
+        uint256 dueDate
+    );
     event Recovered(address token, uint256 amount);
     event RecoveredNFT(address tokenAddress, uint256 tokenId);
-    event ChangeWhitelistERC20(address indexed tokenAddress, bool whitelistState);
+    event ChangeWhitelistERC20(
+        address indexed tokenAddress,
+        bool whitelistState
+    );
 }

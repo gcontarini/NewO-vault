@@ -127,6 +127,49 @@ address owner = <wallet address>;
 veNewo.withdraw(veNewo.assetBalanceOf(owner), owner, owner);
 ```
 
+## Controller for rewards contract
+The vanilla rewards contract has all its front facing functionality for the user blocked now by the controller contract. The idea here is to enable this functionallity throught the controller to ensure:
+1 - No user can use the rewards without agreeing with the terms and conditons (signing the legal new order declaration).
+2 - Many rewards can be deployed and managed through this controller, without the need of looking for each reward contract and calling it individually.
+
+To proper set it up the manager has to:
+1 - Deploy the controller
+2 - Deploy the rewards contracts
+3 - Set the controller as a trustable controller in the reward
+4 - Add the reward contract to the controller
+```
+reward.addTrustedController(controller.address);
+controller.addRewardsContract(reward.address);
+// Or if many reward contracts were deployed
+controller.bulkAddRewardsContract([reward1.address, reward2.address, ...]);
+```
+
+To check if everything is properly setup, call rewardTrustableStatus(). It will return an array of all rewards contracts known by the controller that does not have the controller as trustable, if any.
+
+Rewards contracts can be removed from the controller and the controller can be set to not trustable by the reward contract as well.
+
+## Gracefully exiting
+
+For an user to fully exit from the veNewo system, meaning collect all rewards and receive back all newo tokens. It first needs to collect all rewards and then unstake its newo. This is necessary since the rewards contract uses the balance of the veToken to grant rewards for the user. If the user has no veTokens on the moment it calls the reward contract it'll grant more zero rewards for it. So remember, first collect rewards and then unstake.
+
+With the controller:
+```
+controller.getAllRewards(declaration);
+
+veNewo.exit();
+```
+
+Before the controller:
+```
+// Collect all rewards
+for (int i = 0; i < allRewards.lenght; i++) {
+    allRewards[i].getRewards();
+}
+
+// Only after that exit
+veNewo.exit()
+```
+
 ## Re-locking
 
 An address can re-lock its locked tokens anytime. Re-locking causes the amount of veNEWO
@@ -140,6 +183,13 @@ On day 364 the token holder decides to re-lock all their NEWO for 3 months. Then
 
 The re-locked address needs to notify reward vaults of the new unlock time and veNEWO amount.
 
+## Rewards Interface
+
+All users after locking Newo on the veVault need to notifyDeposit() in every rewards contracts to register itself for rewards (This is now done trougth notifyAllDeposit() on the controller). When calling notifyDeposit() an Account structure is created for that user in the respective rewards contract.
+
+To tell if an user is registered for rewards on a rewards contract, you can call isRegistered(address user) on the reward contract. Returns true if the user is registered for rewards and false if is not.
+
+You can also call depositUserStatus(address user) on the controller to check if user is registered on all rewards contracts known by the controller. It will return an array of rewards contract addresses where the user is not registered, if any.
 
 # Contracts
 

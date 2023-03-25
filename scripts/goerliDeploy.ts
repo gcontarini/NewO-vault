@@ -25,7 +25,7 @@ async function main() {
   
     await veNewo.deployed();
   
-    console.log("veNewo depoloyed", veNewo.address, days(7), days(90), years(3), 2, 15, 5, days(1));
+    console.log("veNewo deployed", veNewo.address, days(7), days(90), years(3), 2, 15, 5, days(1));
 }
 
 main().catch((error) => {
