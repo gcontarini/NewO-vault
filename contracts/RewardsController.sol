@@ -150,7 +150,7 @@ contract RewardsController is Owned {
     }
 
     /**
-     * @notice Check if controller is trusted by the reward contract
+     * @notice Check if controller is trusted by the rewards contracts
      * @return The list of rewards addresses contracts that do
      * not have the controller as trusted
      */

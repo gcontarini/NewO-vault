@@ -129,7 +129,7 @@ veNewo.withdraw(veNewo.assetBalanceOf(owner), owner, owner);
 
 ## Controller for rewards contract
 The vanilla rewards contract has all its front facing functionality for the user blocked now by the controller contract. The idea here is to enable this functionallity throught the controller to ensure:
-1 - No user can use the rewards without agreeing with the terms and conditons.
+1 - No user can use the rewards without agreeing with the terms and conditons (signing the legal new order declaration).
 2 - Many rewards can be deployed and managed through this controller, without the need of looking for each reward contract and calling it individually.
 
 To proper set it up the manager has to:
@@ -143,6 +143,8 @@ controller.addRewardsContract(reward.address);
 // Or if many reward contracts were deployed
 controller.bulkAddRewardsContract([reward1.address, reward2.address, ...]);
 ```
+
+To check if everything is properly setup, call rewardTrustableStatus(). It will return an array of all rewards contracts known by the controller that does not have the controller as trustable, if any.
 
 Rewards contracts can be removed from the controller and the controller can be set to not trustable by the reward contract as well.
 
@@ -185,9 +187,9 @@ The re-locked address needs to notify reward vaults of the new unlock time and v
 
 All users after locking Newo on the veVault need to notifyDeposit() in every rewards contracts to register itself for rewards (This is now done trougth notifyAllDeposit() on the controller). When calling notifyDeposit() an Account structure is created for that user in the respective rewards contract.
 
-To tell if an address is registered for rewards on an rewards contract, you can getDueDate(address user) on the reward contract. If the user is not registered, the function will return zero. It the user is registered, the function will return the dueDate of that user, that should be the same as the unlockDate() of that user on the veVault.
+To tell if an user is registered for rewards on a rewards contract, you can call isRegistered(address user) on the reward contract. Returns true if the user is registered for rewards and false if is not.
 
-This way is also possible to check if the rewards contract is synced with veVault.
+You can also call depositUserStatus() on the controller to check if the msg.sender is registered on all rewards contracts known by the controller. It will return an array of rewards contract addresses where the user is not registered, if any.
 
 # Contracts
 

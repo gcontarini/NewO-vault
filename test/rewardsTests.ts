@@ -412,7 +412,7 @@ describe("Rewards tests", async function () {
         });
     });
 
-    describe.only("Testing isRegistered", () => {
+    describe("Testing isRegistered", () => {
         before(initialize);
 
         const rewardAmount = 3000000;
@@ -433,13 +433,13 @@ describe("Rewards tests", async function () {
                 address(addr1),
                 days(180)
             )
-            
+
             await rewards.connect(owner).addTrustedController(address(controller));
 
             await controller.connect(owner).addRewardsContract(address(rewards));
 
             await controller.connect(addr1).notifyAllDeposit(signatureAddr1);
-            
+
             expect(await rewards.isRegistered(address(addr1))).to.be.true;
         });
 
