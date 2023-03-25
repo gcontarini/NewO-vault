@@ -515,6 +515,62 @@ describe("Controller tests", async function () {
         it("Should not revert if there is no rewards contracts set", async () => {
             await expect(controller.connect(addr1).exitAllRewards(signatureAddr1)).not.to.be.reverted;
         })
+
+        it("Should revert is user's grace period is not over and collect all rewards and exit from veNewo if user grace period is over", async () => {
+
+            const rewardAmount = 1000000;
+
+            const totalRewards = (parseNewo(rewardAmount) as BigNumber).mul(3)
+
+            await setReward(rewardAmount, days(90), rewards);
+
+            await setReward(rewardAmount, days(90), rewards1);
+
+            await setReward(rewardAmount, days(90), rewards2);
+
+            await newoToken.connect(treasury).transfer(address(addr1), parseNewo(1000));
+
+            const { balNewo: intitialNewoBal } = await checkBalances(addr1);
+
+            await veNewo
+                .connect(addr1)
+            ["deposit(uint256,address,uint256)"](
+                parseNewo(1000),
+                address(addr1),
+                years(2)
+            )
+
+            const { balNewo: balNewoAddr1Before } = await checkBalances(addr1);
+
+            await controller.connect(owner).bulkAddRewardsContract([rewards.address, rewards1.address, rewards2.address])
+
+            await controller.connect(addr1).notifyAllDeposit(signatureAddr1);
+
+            await timeTravel(years(2));
+
+            await expect(controller.connect(addr1).exitAllRewards(signatureAddr1)).to.be.revertedWith("FundsNotUnlocked");
+
+            // Time travel to after grace period
+            await timeTravel(days(8))
+
+            await controller.connect(addr1).exitAllRewards(signatureAddr1);
+
+            const { balNewo: balNewoAddr1After } = await checkBalances(addr1);
+
+            let balaceDiff = (balNewoAddr1After as BigNumber).sub(balNewoAddr1Before as BigNumber)
+
+            balaceDiff = (balNewoAddr1After as BigNumber).sub(intitialNewoBal as BigNumber)
+
+            // we are accepting +/- 0.001% rouding errors
+            const lowerBound = (totalRewards as BigNumber).mul(99999).div(100000);
+            const upperBound = (totalRewards as BigNumber).mul(100001).div(100000);
+
+            expect(balaceDiff).to.be.gte(lowerBound).and.lte(upperBound)
+
+            const veNewoBalance = await veNewo.balanceOf(address(addr1))
+
+            expect(veNewoBalance).to.be.equal(0)
+        })
     })
 
     async function setReward(rewardAmount: number, distributionPeriod: number, rewardsContract: Rewards) {
