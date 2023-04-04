@@ -61,7 +61,7 @@ async function main() {
     await windyRewards.addTrustedController(controller.address);
     await daiRewards.addTrustedController(controller.address);
 
-    let controllerStatus = controller.rewardTrustableStatus();
+    let controllerStatus = await controller.rewardTrustableStatus();
 
     console.log("Controller Status: ", controllerStatus);
 }

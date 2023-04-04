@@ -39,6 +39,7 @@ describe("Controller tests", async function () {
     let rewards: Rewards;
     let rewards1: Rewards;
     let rewards2: Rewards;
+    let rewards3: Rewards;
     let controller: RewardsController;
 
     let owner: Signer;
@@ -168,6 +169,14 @@ describe("Controller tests", async function () {
             newoTokenAddress
         );
         await rewards2.deployed();
+
+        rewards3 = await Rewards.deploy(
+            ownerAddress,
+            veNewo.address,
+            TreasuryAddress,
+            newoTokenAddress
+        );
+        await rewards3.deployed();
 
         controller = await RewardsController.deploy(ownerAddress, veNewo.address);
         await controller.deployed();
@@ -370,7 +379,7 @@ describe("Controller tests", async function () {
             await controller.connect(owner).bulkAddRewardsContract([rewards.address, rewards1.address])
 
             // await controller.connect(addr1).notifyAllDeposit(signatureAddr1);
-            
+
             expect(await controller.connect(addr1).depositUserStatus(address(addr1))).to.deep.equal([rewards.address, rewards1.address]);
         })
 
@@ -378,7 +387,7 @@ describe("Controller tests", async function () {
             const rewardAmount = 3000000;
 
             await controller.connect(addr1).notifyAllDeposit(signatureAddr1);
-            
+
             await setReward(rewardAmount / 3, days(180), rewards2);
 
             await controller.connect(owner).bulkAddRewardsContract([rewards2.address])
@@ -513,6 +522,133 @@ describe("Controller tests", async function () {
             const upperBound = (totalRewards as BigNumber).mul(100001).div(100000);
 
             expect(balaceDiff).to.be.gte(lowerBound).and.lte(upperBound)
+        })
+
+        it("Should not revert if just one rewards contract is set and the others have no more rewards to distribute", async () => {
+            const rewardAmount = parseNewo(100000);;
+
+            // Setting rewards again for first contract
+            await rewards
+                .connect(owner)
+                .setRewardsDuration(days(10))
+
+            await newoToken
+                .connect(treasury)
+                .transfer(address(rewards), rewardAmount);
+
+            await rewards
+                .connect(treasury)
+                .notifyRewardAmount(rewardAmount);
+
+            await timeTravel(days(91));
+
+            await controller.connect(addr1).getAllRewards(signatureAddr1);
+
+            await checkBalances(addr1)
+
+            await expect(controller.connect(addr1).getAllRewards(signatureAddr1)).not.to.be.reverted;
+
+            // Set another rewards contract but does not set it with rewards
+
+            await controller.connect(owner).addRewardsContract(rewards3.address)
+
+            await rewards3.connect(owner).addTrustedController(controller.address)
+
+            await timeTravel(days(90));
+
+            await expect(controller.connect(addr1).getAllRewards(signatureAddr1)).not.to.be.reverted;
+        })
+    })
+
+    describe("Testing getAllRewards() edge cases", async () => {
+        before(initialize);
+
+        // 1. User has veTokens
+        // 2. Notify rewards
+        // 3. Pass some time
+        // 4. Notify again to account rewards but without claiming them (does this make sense?)
+        // 5. Unlock date for veTokens arrives
+        // 6. User unstake its veTokens
+        // 7. User tries to claim rewards
+        // 8. Maybe it'll revert with DivisionByZero error'
+
+        it("Should not revert if user has unlocked his veNewo and tries to claim rewards", async () => {
+            const rewardAmount = 1000000;
+
+            await setReward(rewardAmount, days(90), rewards);
+
+            await newoToken.connect(treasury).transfer(address(addr1), parseNewo(1000));
+
+            await veNewo
+                .connect(addr1)
+            ["deposit(uint256,address,uint256)"](
+                parseNewo(1000),
+                address(addr1),
+                years(2)
+            )
+
+            await controller.connect(owner).bulkAddRewardsContract([rewards.address])
+
+            await controller.connect(addr1).notifyAllDeposit(signatureAddr1);
+
+            await timeTravel(days(30));
+
+            await controller.connect(addr1).notifyAllDeposit(signatureAddr1);
+
+            await timeTravel(years(2));
+
+            await veNewo.connect(addr1).exit();
+
+            await checkBalances(addr1)
+
+            await expect(controller.connect(addr1).getAllRewards(signatureAddr1)).not.to.be.reverted;
+
+            await checkBalances(addr1)
+        })
+    })
+
+    describe("Testing getAllRewards() edge cases", async () => {
+        before(initialize);
+
+        // 1. User has veTokens
+        // 2. Notify rewards
+        // 3. Pass some time
+        // 4. Notify again to account rewards but without claiming them
+        // 5. Unlock date for veTokens arrives
+        // 6. User doesnt unstake its veTokens but they can be unstaked
+        // 7. User tries to claim rewards
+        // 8. What will happen?
+
+        it("Should not revert if user's veNewo unlock date arrives and tries to claim rewards", async () => {
+            const rewardAmount = 1000000;
+
+            await setReward(rewardAmount, days(90), rewards);
+
+            await newoToken.connect(treasury).transfer(address(addr1), parseNewo(1000));
+
+            await veNewo
+                .connect(addr1)
+            ["deposit(uint256,address,uint256)"](
+                parseNewo(1000),
+                address(addr1),
+                years(2)
+            )
+
+            await controller.connect(owner).bulkAddRewardsContract([rewards.address])
+
+            await controller.connect(addr1).notifyAllDeposit(signatureAddr1);
+
+            await timeTravel(days(30));
+
+            await controller.connect(addr1).notifyAllDeposit(signatureAddr1);
+
+            await timeTravel(years(2));
+
+            await checkBalances(addr1)
+
+            await expect(controller.connect(addr1).getAllRewards(signatureAddr1)).not.to.be.reverted;
+
+            await checkBalances(addr1)
         })
     })
 
