@@ -201,10 +201,10 @@ contract Rewards is
     {
         emit NotifyDeposit(
             user,
-            accounts[owner].rewardPerTokenPaid,
-            accounts[owner].dueDate
+            accounts[user].rewardPerTokenPaid,
+            accounts[user].dueDate
         );
-        return accounts[owner];
+        return accounts[user];
     }
 
     /**
