@@ -277,8 +277,8 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
      * @return account with full information
      */
     function notifyDeposit() public updateReward(msg.sender) updateBoost(msg.sender) returns(Account memory) {
-        emit NotifyDeposit(msg.sender, accounts[owner].assets, accounts[owner].shares);
-        return accounts[owner];
+        emit NotifyDeposit(msg.sender, accounts[msg.sender].assets, accounts[msg.sender].shares);
+        return accounts[msg.sender];
     }
 
     /**
