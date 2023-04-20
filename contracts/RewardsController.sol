@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity 0.8.13;
 
 import {Owned} from "./Owned.sol";
 import {IRewards} from "./interfaces/IRewards.sol";

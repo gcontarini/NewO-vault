@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity 0.8.13;
 
 import "@openzeppelin/contracts/interfaces/IERC20.sol";
 
@@ -11,11 +11,11 @@ interface IERC4626 is IERC20 {
     function totalAssets() external view returns(uint256 totalManagedAssets);
 
     // The amount of shares that the Vault would exchange for the amount of assets provided, in an ideal scenario where all the conditions are met.
-    function convertToShares(uint256 assets) external view returns(uint256 shares); 
+    function convertToShares(uint256 assets) external view returns(uint256 shares);
 
     // The amount of assets that the Vault would exchange for the amount of shares provided, in an ideal scenario where all the conditions are met.
     function convertToAssets(uint256 shares) external view returns(uint256 assets);
- 
+
     // Maximum amount of the underlying asset that can be deposited into the Vault for the receiver, through a deposit call.
     function maxDeposit(address receiver) external view returns(uint256 maxAssets);
 
@@ -26,7 +26,7 @@ interface IERC4626 is IERC20 {
     function deposit(uint256 assets, address receiver) external returns(uint256 shares);
 
     // Maximum amount of shares that can be minted from the Vault for the receiver, through a mint call.
-    function maxMint(address receiver) external view returns(uint256 maxShares); 
+    function maxMint(address receiver) external view returns(uint256 maxShares);
 
     // Allows an on-chain or off-chain user to simulate the effects of their mint at the current block, given current on-chain conditions.
     function previewMint(uint256 shares) external view returns(uint256 assets);
