@@ -208,7 +208,7 @@ describe("Controller tests", async function () {
         before(initialize);
 
         it("Should only be callable by the owner", async () => {
-            await expect(controller.connect(addr1).updateLegalDeclaration(declaration)).to.be.revertedWith("Only the contract owner may perform this action");
+            await expect(controller.connect(addr1).updateLegalDeclaration(declaration)).to.be.revertedWith("NotOwner()");
 
             await expect(controller.connect(owner).updateLegalDeclaration(declaration)).to.not.be.reverted;
         })
@@ -225,7 +225,7 @@ describe("Controller tests", async function () {
         before(initialize);
 
         it("Should only be callable by the owner", async () => {
-            await expect(controller.connect(addr1).addRewardsContract(rewards.address)).to.be.revertedWith("Only the contract owner may perform this action");
+            await expect(controller.connect(addr1).addRewardsContract(rewards.address)).to.be.revertedWith("NotOwner()");
 
             await expect(controller.connect(owner).addRewardsContract(rewards.address)).to.not.be.reverted;
         })
@@ -247,7 +247,7 @@ describe("Controller tests", async function () {
         before(initialize);
 
         it("Should only be callable by the owner", async () => {
-            await expect(controller.connect(addr1).removeRewardsContract(rewards.address)).to.be.revertedWith("Only the contract owner may perform this action");
+            await expect(controller.connect(addr1).removeRewardsContract(rewards.address)).to.be.revertedWith("NotOwner()");
         })
 
         it("Should revert if removing an unexisting rewards contract", async () => {
@@ -284,7 +284,7 @@ describe("Controller tests", async function () {
         before(initialize);
 
         it("Should only be callable by the owner", async () => {
-            await expect(controller.connect(addr1).bulkAddRewardsContract([rewards.address])).to.be.revertedWith("Only the contract owner may perform this action");
+            await expect(controller.connect(addr1).bulkAddRewardsContract([rewards.address])).to.be.revertedWith("NotOwner()");
         })
 
         it("Should add multiple rewards contracts", async () => {
@@ -308,7 +308,7 @@ describe("Controller tests", async function () {
         before(initialize);
 
         it("Should only be callable by the owner", async () => {
-            await expect(controller.connect(addr1).bulkRemoveRewardsContract([rewards.address])).to.be.revertedWith("Only the contract owner may perform this action");
+            await expect(controller.connect(addr1).bulkRemoveRewardsContract([rewards.address])).to.be.revertedWith("NotOwner()");
         })
 
         it("Should remove multiple rewards contracts", async () => {

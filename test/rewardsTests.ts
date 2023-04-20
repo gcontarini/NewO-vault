@@ -191,7 +191,7 @@ describe("Rewards tests", async function () {
             await expect(rewards
                 .connect(addr1)
                 .notifyRewardAmount(numberOfTokens)
-            ).to.be.revertedWith("Caller is not RewardsDistribution contract");
+            ).to.be.revertedWith("OnlyRewardsDistribution()");
         })
         it("notifyRewardAmount() should revert if reward notified is bigger than contract's balance", async () => {
             const tokensToTransfer = parseNewo(10000);
@@ -225,7 +225,7 @@ describe("Rewards tests", async function () {
             await expect(rewards
                 .connect(addr1)
                 .setRewardsDuration(days(20))
-            ).to.be.revertedWith("Only the contract owner may perform this action")
+            ).to.be.revertedWith("NotOwner()")
         })
         it("setRewardsDuration() should set the right duration", async () => {
             await rewards
@@ -372,7 +372,7 @@ describe("Rewards tests", async function () {
     describe("Testing Trustable", () => {
         before(initialize);
         it("addTrustedController should only be call by owner, should not allow adding an existing trusted controller", async function () {
-            await expect(rewards.connect(addr1).addTrustedController(address(controller))).to.be.revertedWith("Only the contract owner may perform this action");
+            await expect(rewards.connect(addr1).addTrustedController(address(controller))).to.be.revertedWith("NotOwner()");
 
             await rewards.connect(owner).addTrustedController(address(controller));
 

@@ -1,15 +1,15 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import hre = require("hardhat");
-import { 
+import {
     VeNewO,
     XNewO,
     Rewards,
     IUniswapV2Pair,
     IUniswapV2Router02,
     VeNewO__factory,
-    XNewO__factory, 
-    Rewards__factory, 
+    XNewO__factory,
+    Rewards__factory,
 } from '../typechain'
 import { Signer, Contract, BigNumberish, BigNumber } from "ethers";
 
@@ -26,9 +26,9 @@ import {
     formatToken,
 } from "./utils";
 
-/** 
- * Since we are forking mainNet, 
- * we need the addresses that we are going to interact with 
+/**
+ * Since we are forking mainNet,
+ * we need the addresses that we are going to interact with
  */
 
 const lPAddress = "0xc08ED9a9ABEAbcC53875787573DC32Eee5E43513";
@@ -39,7 +39,7 @@ const ROUTERADDRESS = "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F";
 const WhaleAddress = "0x1B7BAa734C00298b9429b518D621753Bb0f6efF2";
 
 describe("xNewo tests", function () {
-    
+
     let VeNewo: VeNewO__factory;
     let XNewo: XNewO__factory;
     let Rewards: Rewards__factory;
@@ -79,7 +79,7 @@ describe("xNewo tests", function () {
     let formatLp: (input: BigNumberish) => string;
     let formatXNewo: (input: BigNumberish) => string;
     let formatUSDC: (input: BigNumberish) => string;
-    
+
 
     const initialize = async () => {
         // reset the block number
@@ -139,7 +139,7 @@ describe("xNewo tests", function () {
         // Get treasury signature
         treasury = await ethers.getSigner(TreasuryAddress);
 
-        /* Impersonate Whale Account 
+        /* Impersonate Whale Account
         (this address will be used to give USDC to other addresses so they can add liquidity on sushiSwap NEWO:USDC pool)
         */
         await hre.network.provider.request({
@@ -182,7 +182,7 @@ describe("xNewo tests", function () {
         rewards = await Rewards.deploy(
             ownerAddress, // address owner_,
             veNewo.address, // address veNewo vault,
-            TreasuryAddress, // address _rewardsDistribution, 
+            TreasuryAddress, // address _rewardsDistribution,
             newoTokenAddress // address _rewardsToken
         );
         await rewards.deployed();
@@ -206,14 +206,14 @@ describe("xNewo tests", function () {
             .connect(treasury)
             .transfer(addr1Address, numberOfTokens
         );
-        
+
         // Transfer some USDC to addr1 so he can add liquidity
         const numberOfUSDCTokens = parseUSDC(1000);
         await USDC
             .connect(whale)
             .transfer(addr1Address, numberOfUSDCTokens
         );
-        
+
         // Transfer some USDC to addr2 so he can add liquidity
         await USDC
             .connect(whale)
@@ -227,7 +227,7 @@ describe("xNewo tests", function () {
                 address(veNewo),
                 "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
         );
-        
+
         // aprove lp spending to addr1
         await lp
             .connect(addr1)
@@ -278,7 +278,7 @@ describe("xNewo tests", function () {
     };
 
     // Tests for view functions
-    describe("Test view functions for simplest case.", async () => {        
+    describe("Test view functions for simplest case.", async () => {
         before(initialize);
         it("asset should be the lp Token", async () => {
             const tokenAddr = await xNewo.asset();
@@ -307,12 +307,12 @@ describe("xNewo tests", function () {
         });
         it("convertToAssets should be zero", async () => {
             const total = await xNewo.convertToAssets(0);
-            
+
             expect(total).to.equal(0);
         });
         it("maxDeposit returns max uint256", async () => {
             const total = await xNewo.maxDeposit(address(addr1));
-            
+
             expect(total).to.equal(ethers.constants.MaxUint256);
         });
         it("previewDeposit with zero assets should be zero", async () => {
@@ -321,32 +321,32 @@ describe("xNewo tests", function () {
         });
         it("maxMint returns max uint256", async () => {
             const total = await xNewo.maxMint(address(addr1));
-            
+
             expect(total).to.equal(ethers.constants.MaxUint256);
         });
         it("previewMint with zero shares should be zero", async () => {
             const total = await xNewo.previewMint(0);
-            
+
             expect(total).to.equal(0);
         });
         it("maxWithdraw with zero balance should be zero", async () => {
             const total = await xNewo.maxWithdraw(address(addr1));
-            
+
             expect(total).to.equal(0);
         });
         it("maxRedeem with zero balance should be zero", async () => {
             const total = await xNewo.maxRedeem(address(addr1));
-            
+
             expect(total).to.equal(0);
         });
         it("previewRedeem with zero shares should be zero", async () => {
             const total = await xNewo.previewRedeem(0);
-            
+
             expect(total).to.equal(0);
         });
         it("assetBalanceOf with zero assets should be zero", async () => {
             const total = await xNewo.assetBalanceOf(address(addr1));
-            
+
             expect(total).to.equal(0);
         });
     })
@@ -405,7 +405,7 @@ describe("xNewo tests", function () {
     /* Tests for External View functions */
     describe("Testing getNewoShare()" , () => {
         before(initialize);
-        it("getNewoShare() should return 0 if address is not a liquidity provider", async () => {  
+        it("getNewoShare() should return 0 if address is not a liquidity provider", async () => {
             expect(await lp
                 .balanceOf(address(addr1))
             ).to.be.equal(0);
@@ -415,15 +415,15 @@ describe("xNewo tests", function () {
             ).to.be.equal(0);
         });
         it("getNewoShare() should return amount of newo added to the liquidity pool(considering 0.001% rounding errors)", async () => {
-            const { 
+            const {
                 newoAdded: newoPool,
                 lpAdded: lpEarned
             } = await addSushiLiquidity(addr1, 10000, 700);
-            
+
             await xNewo
                 .connect(addr1)
                 .deposit(lpEarned, address(addr1));
-            
+
             const newoLpShares = await xNewo.getNewoShare(address(addr1));
 
             // +/- 0.001% margin
@@ -440,7 +440,7 @@ describe("xNewo tests", function () {
             expect(await veNewo
                 .totalAssets()
             ).to.be.equal(0)
-            
+
             expect (await xNewo
                 .getMultiplier(address(addr1))
             ).to.be.equal(1);
@@ -450,17 +450,17 @@ describe("xNewo tests", function () {
             expect(await veNewo
                 .balanceOf(address(addr1))
             ).to.be.equal(0);
-            
+
             expect(await xNewo
                 .getMultiplier(address(addr1))
             ).to.be.equal(1)
         })
-        
+
         it("Multiplier should be equal to VeMultipler when address has veNewo", async () => {
-            const { 
-                balNewo: balNewoBefore 
+            const {
+                balNewo: balNewoBefore
             } = await checkBalances(addr1);
-            
+
             await veNewo
                 .connect(addr1)
                 ["deposit(uint256,address,uint256)"](
@@ -470,7 +470,7 @@ describe("xNewo tests", function () {
             expect(await veNewo
                 .balanceOf(address(addr1))
             ).to.not.equal(0);
-            
+
             const { balVeNewo: balVeBefore } = await checkBalances(addr1);
 
             const veMultiplier = (balVeBefore as BigNumber).mul("1000000000000000000").div(balNewoBefore);
@@ -485,14 +485,14 @@ describe("xNewo tests", function () {
             expect(await veNewo
                 .balanceOf(address(addr1)))
             .to.be.equal(0);
-            
+
             expect (await xNewo
                 .getNewoLocked(address(addr1)))
             .to.be.equal(0);
         })
         it("getNewoLocked() should return the amount of NewO locked", async () => {
-            const { 
-                balNewo: balNewoBefore 
+            const {
+                balNewo: balNewoBefore
             } = await checkBalances(addr1);
 
             await veNewo
@@ -500,7 +500,7 @@ describe("xNewo tests", function () {
                 ["deposit(uint256,address)"](
                     balNewoBefore, address(addr1)
                 );
-            
+
             expect(await xNewo
                 .getNewoLocked(address(addr1)))
             .to.be.equal(balNewoBefore);
@@ -512,21 +512,21 @@ describe("xNewo tests", function () {
         it("Deposit should add the right amount of assets to the Vault", async () => {
             const newoToLp = 10000;
             const USDCToLp = 700;
-            
+
             expect(await lp
                 .balanceOf(address(addr1))
             ).to.be.equal(0);
-            
+
             expect(await xNewo
                 .totalAssets()
             ).to.be.equal(0)
-            
+
             await addSushiLiquidity(addr1, newoToLp, USDCToLp);
-            
-            const { 
+
+            const {
                 balLp: lpBalBefore
             } = await checkBalances(addr1);
-            
+
             await xNewo
                 .connect(addr1)
                 .deposit(lpBalBefore, address(addr1))
@@ -540,7 +540,7 @@ describe("xNewo tests", function () {
     describe("Testing deposit()", () => {
         before(initialize);
         it("If depositor has no veNewo, vault should mint xNewo on the same amount of lp staked (Multiplier is 1)", async () => {
-            
+
             expect(await lp
                 .balanceOf(address(addr1))
             ).to.be.equal(0);
@@ -548,17 +548,17 @@ describe("xNewo tests", function () {
             expect(await veNewo
                 .balanceOf(address(addr1))
             ).to.be.equal(0);
-            
+
             await addSushiLiquidity(addr1, 10000, 700);
 
-            const { 
+            const {
                 balLp: balLp
             } = await checkBalances(addr1);
 
             await xNewo
                 .connect(addr1)
                 .deposit(balLp, address(addr1));
-            
+
             expect(await xNewo
                 .balanceOf(address(addr1))
             ).to.be.equal(balLp)
@@ -577,7 +577,7 @@ describe("xNewo tests", function () {
                 .connect(addr1)
                 ["deposit(uint256,address)"]
                 (parseNewo(newoToLock), address(addr1));
-            
+
             await xNewo
                 .connect(addr1)
                 .deposit(balLpBefore, address(addr1)
@@ -603,7 +603,7 @@ describe("xNewo tests", function () {
                 .connect(addr1)
                 ["deposit(uint256,address,uint256)"]
                 (parseNewo(newoToLock), address(addr1), years(2));
-            
+
             await xNewo
                 .connect(addr1)
                 .deposit(balLpBefore, address(addr1)
@@ -629,7 +629,7 @@ describe("xNewo tests", function () {
                 .connect(addr1)
                 ["deposit(uint256,address,uint256)"]
                 (parseNewo(newoToLock), address(addr1), years(2));
-            
+
             await xNewo
                 .connect(addr1)
                 .deposit(balLpBefore, address(addr1)
@@ -646,7 +646,7 @@ describe("xNewo tests", function () {
             // +/- 0.001% margin
             const lowerBound = (xMult as BigNumber).mul(99999).div(100000);
             const upperBound = (xMult as BigNumber).mul(100001).div(100000);
-        
+
             expect(veMult).to.be.gte(lowerBound).and.lte(upperBound);
 
         })
@@ -655,7 +655,7 @@ describe("xNewo tests", function () {
     describe("Testing deposit()", () => {
         before(initialize);
         it("If address locked newo for more than min locktime but address has less newO locked than staked on the Lp hes bonus should be 0(Multiplier should be 1)", async () => {
-            
+
             // Provide 9000 Newo to the Lp
             const { newoAdded: newoAddedLp } = await addSushiLiquidity(addr1, 9000, 700);
 
@@ -663,14 +663,14 @@ describe("xNewo tests", function () {
             const newoToLock = 1000;
 
             expect(newoAddedLp).to.gt(parseNewo(newoToLock))
-            
+
             const { balLp: balLpBefore } = await checkBalances(addr1);
 
             await veNewo
                 .connect(addr1)
                 ["deposit(uint256,address,uint256)"]
                 (parseNewo(newoToLock), address(addr1), years(2));
-            
+
             await xNewo
                 .connect(addr1)
                 .deposit(balLpBefore, address(addr1)
@@ -687,7 +687,7 @@ describe("xNewo tests", function () {
     describe("Testing deposit()", () => {
         before(initialize);
         it("If address locked newo for more than min locktime and address has same amount of newO locked and staked, hes bonus should be positive", async () => {
-            
+
             //Provide Newo to Lp and get the amount provided and the lp earned
             const {lpAdded: lpEarned , newoAdded: newoStaked} = await addSushiLiquidity(addr1, 100, 7);
 
@@ -697,7 +697,7 @@ describe("xNewo tests", function () {
                 .connect(addr1)
                 ["deposit(uint256,address,uint256)"]
                 (newoStaked, address(addr1), years(2));
-            
+
             await xNewo
                 .connect(addr1)
                 .deposit(lpEarned, address(addr1)
@@ -736,13 +736,13 @@ describe("xNewo tests", function () {
             await expect(xNewo
                 .connect(addr1)
                 .setRewardsDuration(days(20))
-            ).to.be.revertedWith("Only the contract owner may perform this action");
+            ).to.be.revertedWith("NotOwner()");
         });
         it("setRewardsDuration() should set the right rewards duration", async () => {
             await xNewo
                 .connect(owner)
                 .setRewardsDuration(days(20))
-            
+
             expect(await xNewo
                 .rewardsDuration()
             ).to.be.equal(days(20));
@@ -760,7 +760,7 @@ describe("xNewo tests", function () {
             await xNewo
                 .connect(treasury)
                 .notifyRewardAmount(tokensToReward);
-            
+
             await xNewo
                 .connect(addr1)
                 .deposit(lpEarned, address(addr1));
@@ -768,13 +768,13 @@ describe("xNewo tests", function () {
             const rewardRate = (tokensToReward as BigNumber).div(days(20))
             const rewardR = await xNewo.rewardRate();
 
-            expect(rewardR).to.be.equal(rewardRate); 
+            expect(rewardR).to.be.equal(rewardRate);
         });
         it("getRewardForDuration() should return the right reward for the duration", async () => {
             const tokensToReward = parseNewo(10000);
             const rewardRate = (tokensToReward as BigNumber).div(days(20));
             const rewardDuration = await xNewo.getRewardForDuration();
-            
+
             expect(rewardDuration)
                 .to.be.equal((rewardRate as BigNumber)
                 .mul(days(20))
@@ -783,7 +783,7 @@ describe("xNewo tests", function () {
         it("getReward() should transfer reward on the right amount (accept 0.001% margin error)", async () => {
             const { balNewo: balNewoBefore } = await checkBalances(addr1)
             await timeTravel(days(30));
-            
+
             await xNewo.connect(addr1).getReward();
             const { balNewo: balNewoAfter } = await checkBalances(addr1)
 
@@ -792,7 +792,7 @@ describe("xNewo tests", function () {
             // +/- 0.001% margin error
             const lowerBound = (rewardEarned as BigNumber).mul(99999).div(100000);
             const upperBound = (rewardEarned as BigNumber).mul(100001).div(100000);
-        
+
             expect(parseNewo(10000)).to.be.gte(lowerBound).and.lte(upperBound);
         })
     })
@@ -803,13 +803,13 @@ describe("xNewo tests", function () {
             await expect(xNewo
                 .connect(addr1)
                 .changeWhitelistRecoverERC20(address(USDC), true)
-            ).to.be.revertedWith("Only the contract owner may perform this action")
+            ).to.be.revertedWith("NotOwner()")
         });
         it("Trying to recover a not white listed token should revert", async () => {
             await USDC
                 .connect(whale)
                 .transfer(address(xNewo), parseUSDC(10000));
-            
+
             await expect(xNewo
                 .connect(owner)
                 .recoverERC20(address(USDC), parseUSDC(10000))
@@ -819,15 +819,15 @@ describe("xNewo tests", function () {
             await expect(xNewo
                 .connect(addr1)
                 .recoverERC20(address(USDC), parseUSDC(10000))
-            ).to.be.revertedWith("Only the contract owner may perform this action");
+            ).to.be.revertedWith("NotOwner()");
         });
         it("recoverERC20 should transfer the right amount of tokens to the owner", async () => {
             const { balUSDC: balUSDCOwnerBefore } = await checkBalances(owner);
-            
+
             await xNewo
                 .connect(owner)
                 .changeWhitelistRecoverERC20(address(USDC), true)
-            
+
             await xNewo.connect(owner)
                 .recoverERC20(address(USDC), parseUSDC(10000))
 
@@ -841,11 +841,11 @@ describe("xNewo tests", function () {
             await USDC
                 .connect(whale)
                 .transfer(address(xNewo), parseUSDC(10000));
-            
+
             expect(await USDC
                 .balanceOf(address(xNewo))
             ).to.be.equal(parseUSDC(10000));
-            
+
             await expect(xNewo.connect(owner)
                 .recoverERC20(address(USDC), parseUSDC(10001))
             ).to.be.revertedWith("InsufficientBalance()")
@@ -856,13 +856,13 @@ describe("xNewo tests", function () {
     describe("Integration tests", () => {
         before(initialize);
         it("Accounts should earn rewards based on shares (addr1 have bonus so it should earn more rewards) and full withdraw should empty the vault", async () => {
-           
+
             // Set 10000 newo to be distributed on a period of 2 years
             await setReward(10000, years(2));
 
             const lpToStake = parseLp(0.0001);
             const newoToLock = parseNewo(10000)
-            
+
             // Transfer the same amount of Lp to both addresses
             await lp.connect(treasury)
                 .transfer(address(addr2), lpToStake)
@@ -875,16 +875,16 @@ describe("xNewo tests", function () {
                 .connect(addr1)
                 ["deposit(uint256,address,uint256)"]
                 (newoToLock, address(addr1), years(2));
-            
+
             // Both addresses stake the same amount of Newo for xNewo
             await xNewo
                 .connect(addr2)
                 .deposit(lpToStake, address(addr2))
-            
+
             await xNewo
                 .connect(addr1)
                 .deposit(lpToStake, address(addr1))
-            
+
             // Fast foward to the end of the distribution period
             await timeTravel(years(2));
 
@@ -895,7 +895,7 @@ describe("xNewo tests", function () {
             // Both addresses claim their rewards
             await xNewo.connect(addr2).getReward();
             await xNewo.connect(addr1).getReward();
-            
+
             // Check balance of both addresses after the clain
             const { balNewo: balNewoAddr1After } = await checkBalances(addr1);
             const { balNewo: balNewoAddr2After } = await checkBalances(addr2);
@@ -924,7 +924,7 @@ describe("xNewo tests", function () {
             const upperBound = (distributed as BigNumber).mul(100001).div(100000);
 
             expect(parseNewo(10000)).to.be.gte(lowerBound).and.lte(upperBound);
-            
+
             // Testing withdraw
             const lpStakedNewoAddr1 = await xNewo.assetBalanceOf(address(addr1));
             const lpStakedNewoAddr2 = await xNewo.assetBalanceOf(address(addr2));
@@ -932,7 +932,7 @@ describe("xNewo tests", function () {
             await xNewo
                 .connect(addr1)
                 .withdraw(lpStakedNewoAddr1, address(addr1), address(addr1));
-            
+
             await xNewo
                 .connect(addr2)
                 .withdraw(lpStakedNewoAddr2, address(addr2), address(addr2));
@@ -940,9 +940,9 @@ describe("xNewo tests", function () {
             const { balXNewo: balXAddr1After } = await checkBalances(addr1)
             const { balXNewo: balXAddr2After } = await checkBalances(addr2)
 
-            /* After the withdraw the vault should be empty 
+            /* After the withdraw the vault should be empty
             *  and both addresses should have 0 xNewo */
-            
+
             expect(balXAddr1After).to.be.equal(0)
             expect(balXAddr2After).to.be.equal(0)
 
@@ -981,29 +981,29 @@ describe("xNewo tests", function () {
                 lpAdded: lpAddr2,
                 newoAdded: newoToLpAddr2
             } = await addSushiLiquidity(addr2, newoToLp, USDCToLp);
-                        
+
             const {
                 lpAdded: lpAddr1,
                 newoAdded: newoToLpAddr1
             } = await addSushiLiquidity(addr1, newoToLp, USDCToLp);
-            
+
             console.log("Account 2 Newo added to Lp", newoToLpAddr2);
             console.log("Account 1 Newo added to Lp", newoToLpAddr1);
-            
+
             // addr1 lock newo for veNewo to earn bonus
             await veNewo
                 .connect(addr1)
                 ["deposit(uint256,address,uint256)"]
-                (parseNewo(1000), address(addr1), years(3));            
-            
+                (parseNewo(1000), address(addr1), years(3));
+
             await xNewo
                 .connect(addr2)
                 .deposit(lpAddr2, address(addr2))
-            
+
             await xNewo
                 .connect(addr1)
                 .deposit(lpAddr1, address(addr1))
-            
+
             await timeTravel(years(3));
 
             const { balNewo: balNewoAddr1BeforeExit } = await checkBalances(addr1);
@@ -1011,7 +1011,7 @@ describe("xNewo tests", function () {
 
             await xNewo.connect(addr1).exit();
             await xNewo.connect(addr2).exit();
-            
+
             const {balXNewo: balXAddr1After, balNewo: balNewoAddr1AfterExit} = await checkBalances(addr1)
             const {balXNewo: balXAddr2After, balNewo: balNewoAddr2AfterExit} = await checkBalances(addr2)
 
@@ -1049,21 +1049,21 @@ describe("xNewo tests", function () {
         });
     })
 
-    /** 
-    *   This function provide liquidity to the NEWO:USDC pair on sushiSwap 
+    /**
+    *   This function provide liquidity to the NEWO:USDC pair on sushiSwap
     *   and calculates the amount of newo and usdc provided
     *   and the amount of lp earned
     */
-    
+
     async function addSushiLiquidity(signer: Signer, NewoAmount: number, USDCAmount: number){
-        const { 
+        const {
             balNewo: newOBalBefore,
             balUSDC: USDCBalBefore,
-            balLp: lpBalBefore 
+            balLp: lpBalBefore
         } = await checkBalances(signer);
 
         console.log(`\tadding liquidity by ${address(signer)}...\n\n`);
-        
+
         await ROUTER.connect(signer).addLiquidity(
             address(newoToken),
             address(USDC),
@@ -1074,17 +1074,17 @@ describe("xNewo tests", function () {
             address(signer),
             999999999999,
         );
-        
-        const { 
+
+        const {
             balNewo: newOBalAfter,
             balUSDC: USDCBalAfter,
             balLp: lpBalAfter
         } = await checkBalances(signer);
-        
+
         const newoAdded = (newOBalBefore as BigNumber).sub(newOBalAfter);
         const USDCAdded = (USDCBalBefore as BigNumber).sub(USDCBalAfter);
         const lpAdded = (lpBalAfter as BigNumber).sub(lpBalBefore);
-        
+
         return { newoAdded, USDCAdded, lpAdded }
     }
 
@@ -1094,9 +1094,9 @@ describe("xNewo tests", function () {
     async function setReward(rewardAmount: number, distributionPeriod: number) {
 
         const tokensToReward = parseNewo(rewardAmount);
-        
+
         console.log("\n Setting distribution reward");
-        
+
         await xNewo
             .connect(owner)
             .setRewardsDuration(distributionPeriod)
@@ -1111,7 +1111,7 @@ describe("xNewo tests", function () {
     }
 
     /**
-     * This function will check the balance of Newo, xNewo, veNewo, USDC 
+     * This function will check the balance of Newo, xNewo, veNewo, USDC
      * and Lp tokens of the signer
      */
     async function checkBalances(signer: Signer) {
@@ -1121,7 +1121,7 @@ describe("xNewo tests", function () {
         const balLp = await balanceLp(signer);
         const balUSDC = await balanceUSDC(signer);
         console.log("\tBalance report:");
-        
+
         console.log(
             `\tbalance of newo of ${address(signer)}: ${formatNewo(
                 balNewo
