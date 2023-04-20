@@ -25,6 +25,7 @@ abstract contract Trustable is Owned {
      * @param trustedAddress The address of a trusted controller to add.
      */
     function addTrustedController(address trustedAddress) external onlyOwner {
+        if (trustedAddress == address(0)) revert OwnerCannotBeZero();
         if (trustedControllers[trustedAddress])
             revert AlreadyTrustedController();
         trustedControllers[trustedAddress] = true;
@@ -39,11 +40,9 @@ abstract contract Trustable is Owned {
         trustedControllers[toRemove] = false;
     }
 
-    function isControllerTrusted(address controller)
-        external
-        view
-        returns (bool)
-    {
+    function isControllerTrusted(
+        address controller
+    ) external view returns (bool) {
         return trustedControllers[controller];
     }
 }

@@ -67,6 +67,8 @@ contract RewardsController is Owned {
     function addRewardsContract(
         address _rewardsContractAddress
     ) public onlyOwner {
+        if (_rewardsContractAddress == address(0))
+            revert RewardsContractCannotBeZero();
         if (rewardsContractsAuth[_rewardsContractAddress].isAuth) {
             revert RewardsContractAlreadyExists();
         }
@@ -188,7 +190,9 @@ contract RewardsController is Owned {
      * veToken balance, the rewards contract will shown the user as not
      * registered.
      */
-    function depositUserStatus(address user) public view returns (address[] memory) {
+    function depositUserStatus(
+        address user
+    ) public view returns (address[] memory) {
         uint length = rewardsContracts.length;
 
         address[] memory missingNotify = new address[](length);
@@ -271,7 +275,11 @@ contract RewardsController is Owned {
         uint256 balanceBefore = underlying.balanceOf(address(this));
 
         // Controller will receive a reward for kicking off the user
-        veVault.withdraw(veVault.assetBalanceOf(msg.sender), msg.sender, msg.sender);
+        veVault.withdraw(
+            veVault.assetBalanceOf(msg.sender),
+            msg.sender,
+            msg.sender
+        );
 
         // Balance after receiving rewards
         uint256 balanceAfter = underlying.balanceOf(address(this));
@@ -310,5 +318,6 @@ contract RewardsController is Owned {
 
     error RewardsContractNotFound();
     error RewardsContractAlreadyExists();
+    error RewardsContractCannotBeZero();
     error WrongTermsOfUse();
 }

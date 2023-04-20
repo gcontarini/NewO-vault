@@ -14,7 +14,7 @@ abstract contract Pausable is Owned {
 
     constructor() {
         // This contract is abstract, and thus cannot be instantiated directly
-        if (owner != address(0))
+        if (owner == address(0))
             revert OwnerNotSet();
         // Paused will be false, and lastPauseTime will be 0 upon initialisation
     }
