@@ -495,6 +495,8 @@ describe("Controller tests", async function () {
 
             await newoToken.connect(treasury).transfer(address(addr1), parseNewo(1000));
 
+            await controller.connect(owner).bulkAddRewardsContract([rewards.address, rewards1.address, rewards2.address])
+
             await veNewo
                 .connect(addr1)
             ["deposit(uint256,address,uint256)"](
@@ -504,8 +506,6 @@ describe("Controller tests", async function () {
             )
 
             const { balNewo: balNewoAddr1Before } = await checkBalances(addr1);
-
-            await controller.connect(owner).bulkAddRewardsContract([rewards.address, rewards1.address, rewards2.address])
 
             await controller.connect(addr1).notifyAllDeposit(signatureAddr1);
 
@@ -649,6 +649,80 @@ describe("Controller tests", async function () {
             await expect(controller.connect(addr1).getAllRewards(signatureAddr1)).not.to.be.reverted;
 
             await checkBalances(addr1)
+        })
+    })
+
+    describe("Testing getAllRewards() timestamp edge case", async () => {
+        before(initialize);
+
+        // 1. User one does deposit and noiftyAllDeposit on the same transaction while user two only do deposit on this transaction.
+        // 2. User two does notifyAllDeposit on the next block.
+
+        it("User one should earn more rewards case it notified earlier", async () => {
+            const rewardAmount = 1000000;
+
+            await setReward(rewardAmount, days(90), rewards);
+
+            await controller.connect(owner).bulkAddRewardsContract([rewards.address])
+
+            await newoToken.connect(treasury).transfer(address(addr2), parseNewo(1000));
+
+            await hre.network.provider.send("evm_setAutomine", [false]);
+
+            await hre.network.provider.send("evm_setIntervalMining", [0]);
+
+            await veNewo
+                .connect(addr1)
+            ["deposit(uint256,address,uint256)"](
+                parseNewo(1000),
+                address(addr1),
+                years(2)
+            )
+
+            await veNewo
+                .connect(addr2)
+            ["deposit(uint256,address,uint256)"](
+                parseNewo(1000),
+                address(addr2),
+                years(2)
+            )
+
+            await controller.connect(addr1).notifyAllDeposit(signatureAddr1);
+
+            // one second
+            await hre.network.provider.send("evm_mine");
+
+            await controller.connect(addr2).notifyAllDeposit(signatureAddr2);
+
+            // one second
+            await hre.network.provider.send("evm_mine");
+
+            await timeTravel(days(91));
+
+            await controller.connect(addr1).getAllRewards(signatureAddr1);
+
+            await controller.connect(addr2).getAllRewards(signatureAddr2);
+
+            // one second
+            await hre.network.provider.send("evm_mine");
+
+            const { balNewo: balNewoAddr1 } = await checkBalances(addr1);
+
+            const { balNewo: balNewoAddr2 } = await checkBalances(addr2);
+
+            expect(balNewoAddr1).to.be.gt(balNewoAddr2);
+
+            let balRewardDiff = (balNewoAddr1 as BigNumber).sub(balNewoAddr2 as BigNumber);
+
+            let rewardsPerSecond = await rewards.rewardRate();
+
+            let expectedRewards = (rewardsPerSecond as BigNumber).div(2)
+
+            // we are accepting +/- 0.001% rouding errors
+            const lowerBound = (expectedRewards as BigNumber).mul(99999).div(100000);
+            const upperBound = (expectedRewards as BigNumber).mul(100001).div(100000);
+
+            expect(balRewardDiff).to.be.gte(lowerBound).and.lte(upperBound)
         })
     })
 
