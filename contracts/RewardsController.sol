@@ -4,7 +4,7 @@ pragma solidity 0.8.13;
 import {Owned} from "./Owned.sol";
 import {IRewards} from "./interfaces/IRewards.sol";
 import {IVeVault} from "./interfaces/IVeVault.sol";
-import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
 /**
@@ -13,6 +13,8 @@ import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/Signa
  * @dev This contract is owned
  */
 contract RewardsController is Owned {
+    using SafeERC20 for IERC20;
+
     // Sum to 32 bytes
     struct RewardsContract {
         bool isAuth;
@@ -286,7 +288,7 @@ contract RewardsController is Owned {
 
         // Calculate the amount of rewards to transfer to the user
         uint256 amount = balanceAfter - balanceBefore;
-        underlying.transfer(msg.sender, amount);
+        underlying.safeTransfer(msg.sender, amount);
     }
 
     /* ========= MODIFIERS ========== */
