@@ -8,7 +8,6 @@ import "./interfaces/IVeVault.sol";
 
 // Inheritance
 import "./RewardsDistributionRecipient.sol";
-import "./Pausable.sol";
 import "./Trustable.sol";
 
 // Custom errors
@@ -27,7 +26,6 @@ error UserHasNoVeToken();
 contract Rewards is
     RewardsDistributionRecipient,
     ReentrancyGuard,
-    Pausable,
     Trustable
 {
     using SafeERC20 for IERC20;
