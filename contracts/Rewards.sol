@@ -33,6 +33,7 @@ contract Rewards is
     struct Account {
         uint256 rewardPerTokenPaid;
         uint256 rewards;
+        uint256 lastBalance;
         uint248 dueDate;
         bool    isStarted;
     }
@@ -168,7 +169,7 @@ contract Rewards is
         uint256 moreReward = 0;
         if (currentReward > paidReward) {
             moreReward =
-                (IVeVault(vault).balanceOf(owner) *
+                (accounts[owner].lastBalance *
                     (currentReward - paidReward)) /
                 1e18;
         }
@@ -324,14 +325,18 @@ contract Rewards is
         lastUpdateTime = lastTimeRewardApplicable(address(0));
 
         if (owner != address(0)) {
+            uint balance = IVeVault(vault).balanceOf(owner);
             if (!accounts[owner].isStarted)
             {
                 accounts[owner].isStarted = true;
+                accounts[owner].lastBalance = balance;
+                accounts[owner].dueDate = uint248(IVeVault(vault).unlockDate(owner));
                 accounts[owner].rewardPerTokenPaid = rewardPerTokenStored;
             }
-            accounts[owner].dueDate = uint248(IVeVault(vault).unlockDate(owner));
             accounts[owner].rewards = earned(owner);
             accounts[owner].rewardPerTokenPaid = rewardPerToken(address(0));
+            accounts[owner].lastBalance = balance;
+            accounts[owner].dueDate = uint248(IVeVault(vault).unlockDate(owner));
         }
         _;
     }
