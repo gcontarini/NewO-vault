@@ -2,20 +2,20 @@
 pragma solidity 0.8.13;
 
 // Inheritance
-import "./Owned.sol";
+import {Owned} from "./Owned.sol";
+
+// Errors
+error OwnerNotSet();
+error Paused();
 
 // https://docs.synthetix.io/contracts/source/contracts/Pausable
 abstract contract Pausable is Owned {
     uint public lastPauseTime;
     bool public paused;
 
-    error OwnerNotSet();
-    error Paused();
-
     constructor() {
         // This contract is abstract, and thus cannot be instantiated directly
-        if (owner == address(0))
-            revert OwnerNotSet();
+        if (owner == address(0)) revert OwnerNotSet();
         // Paused will be false, and lastPauseTime will be 0 upon initialisation
     }
 
@@ -43,9 +43,8 @@ abstract contract Pausable is Owned {
 
     event PauseChanged(bool isPaused);
 
-    modifier notPaused {
-        if (paused)
-            revert Paused();
+    modifier notPaused() {
+        if (paused) revert Paused();
         _;
     }
 }

@@ -2,7 +2,7 @@
 pragma solidity 0.8.13;
 
 // Inheritance
-import "./Owned.sol";
+import {Owned, OwnerCannotBeZero} from "./Owned.sol";
 
 // Custom errors
 error AlreadyTrustedController();

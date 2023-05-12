@@ -10,12 +10,11 @@ import {IVeVault} from "./interfaces/IVeVault.sol";
 import {RewardsDistributionRecipient, Owned} from "./RewardsDistributionRecipient.sol";
 import {Trustable} from "./Trustable.sol";
 import {Pausable} from "./Pausable.sol";
+import {RecoverTokens} from "./RecoverTokens.sol";
 
-// Custom errors
+// Errors
 error RewardTooHigh();
 error RewardPeriodNotComplete(uint256 finish);
-error NotWhitelisted();
-error InsufficientBalance(uint256 available, uint256 required);
 error UserHasNoVeToken();
 
 // Structs
@@ -37,7 +36,8 @@ contract Rewards is
     RewardsDistributionRecipient,
     ReentrancyGuard,
     Pausable,
-    Trustable
+    Trustable,
+    RecoverTokens
 {
     using SafeERC20 for IERC20;
 
@@ -52,9 +52,6 @@ contract Rewards is
     uint256 public rewardPerTokenStored; // amounts of reward per staked token
 
     mapping(address => Account) public accounts;
-
-    // Only allow recoverERC20 from this list
-    mapping(address => bool) public whitelistRecoverERC20;
 
     /* ========== CONSTRUCTOR ========== */
 
@@ -268,73 +265,6 @@ contract Rewards is
         emit RewardsDurationUpdated(rewardsDuration);
     }
 
-    /**
-     * @notice Added to support to recover ERC20 token within a whitelist
-     * @param tokenAddress address of the token to recover
-     * @param tokenAmount amount of tokens to recover
-     */
-    function recoverERC20(
-        address tokenAddress,
-        uint256 tokenAmount
-    ) external onlyOwner {
-        _recoverERC20(tokenAddress, tokenAmount);
-    }
-
-    /**
-     * @notice Added to support to recover all balnce of ERC20 token
-     * within a whitelist
-     * @param tokenAddress address of the token to recover
-     */
-    function recoverERC20(address tokenAddress) external onlyOwner {
-        _recoverERC20(
-            tokenAddress,
-            IERC20(tokenAddress).balanceOf(address(this))
-        );
-    }
-
-    function _recoverERC20(address tokenAddress, uint256 tokenAmount) private {
-        if (whitelistRecoverERC20[tokenAddress] == false)
-            revert NotWhitelisted();
-
-        uint balance = IERC20(tokenAddress).balanceOf(address(this));
-        if (balance < tokenAmount)
-            revert InsufficientBalance({
-                available: balance,
-                required: tokenAmount
-            });
-
-        IERC20(tokenAddress).safeTransfer(owner, tokenAmount);
-        emit Recovered(tokenAddress, tokenAmount);
-    }
-
-    /**
-     * @dev It's possible to owner whitelist the underlying token
-     * and do some kind of rugpull. To prevent that, it'recommended
-     * that owner is a multisig address. Also, it emits an event
-     * of changes in the ERC20 whitelist as a safety check.
-     * @notice Owner can whitelist an ERC20 to recover it afterwards.
-     * Emits and event to notify all users about it
-     * @param flag: true to allow recover for the token
-     */
-    function changeWhitelistRecoverERC20(
-        address tokenAddress,
-        bool flag
-    ) external onlyOwner {
-        whitelistRecoverERC20[tokenAddress] = flag;
-        emit ChangeWhitelistERC20(tokenAddress, flag);
-    }
-
-    /**
-     * @notice Added to support to recover ERC721
-     */
-    function recoverERC721(
-        address tokenAddress,
-        uint256 tokenId
-    ) external onlyOwner {
-        IERC721(tokenAddress).safeTransferFrom(address(this), owner, tokenId);
-        emit RecoveredNFT(tokenAddress, tokenId);
-    }
-
     /* ========== MODIFIERS ========== */
 
     /**
@@ -376,11 +306,5 @@ contract Rewards is
         address indexed user,
         uint256 rewardPerTokenPaid,
         uint256 dueDate
-    );
-    event Recovered(address token, uint256 amount);
-    event RecoveredNFT(address tokenAddress, uint256 tokenId);
-    event ChangeWhitelistERC20(
-        address indexed tokenAddress,
-        bool whitelistState
     );
 }

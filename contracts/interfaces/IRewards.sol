@@ -22,7 +22,6 @@ interface IRewards {
         address controller
     ) external view returns (bool);
 
-
     /**
      * @notice Get the dueDate for a user. This should be equal to
      * user's veVault unlockDate. If is zero, the user is not registered.

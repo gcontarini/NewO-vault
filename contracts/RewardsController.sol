@@ -1,25 +1,35 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.13;
 
-import {Owned} from "./Owned.sol";
 import {IRewards} from "./interfaces/IRewards.sol";
 import {IVeVault} from "./interfaces/IVeVault.sol";
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+
+// Inheritance
+import {Owned} from "./Owned.sol";
+import {Pausable} from "./Pausable.sol";
+import {RecoverTokens} from "./RecoverTokens.sol";
+
+// Errors
+error RewardsContractNotFound();
+error RewardsContractAlreadyExists();
+error RewardsContractCannotBeZero();
+error WrongTermsOfUse();
+
+// Structs
+struct RewardsContract {
+    bool isAuth;
+    uint248 index;
+}
 
 /**
  * @title RewardsController
  * @notice This contract is used to manage the rewards contracts
  * @dev This contract is owned
  */
-contract RewardsController is Owned {
+contract RewardsController is Owned, Pausable, RecoverTokens {
     using SafeERC20 for IERC20;
-
-    // Sum to 32 bytes
-    struct RewardsContract {
-        bool isAuth;
-        uint248 index;
-    }
 
     /* ========== STATE VARIABLES ========== */
 
@@ -227,7 +237,7 @@ contract RewardsController is Owned {
      */
     function getAllRewards(
         bytes calldata signature
-    ) public onlyConfirmedTermsOfUse(signature) {
+    ) public notPaused onlyConfirmedTermsOfUse(signature) {
         uint length = rewardsContracts.length;
         for (uint i = 0; i < length; ) {
             IRewards rewardsContract = IRewards(rewardsContracts[i]);
@@ -246,7 +256,7 @@ contract RewardsController is Owned {
      */
     function notifyAllDeposit(
         bytes calldata signature
-    ) public onlyConfirmedTermsOfUse(signature) {
+    ) public notPaused onlyConfirmedTermsOfUse(signature) {
         uint length = rewardsContracts.length;
         for (uint i = 0; i < length; ) {
             IRewards rewardsContract = IRewards(rewardsContracts[i]);
@@ -266,7 +276,7 @@ contract RewardsController is Owned {
      */
     function exitAllRewards(
         bytes calldata signature
-    ) public onlyConfirmedTermsOfUse(signature) {
+    ) public notPaused onlyConfirmedTermsOfUse(signature) {
         // Collect all rewards
         getAllRewards(signature);
 
@@ -315,11 +325,4 @@ contract RewardsController is Owned {
 
     event RewardsContractAdded(address indexed rewardsContractAddress);
     event RewardsContractRemoved(address indexed rewardsContractAddress);
-
-    /* ========== ERRORS ========== */
-
-    error RewardsContractNotFound();
-    error RewardsContractAlreadyExists();
-    error RewardsContractCannotBeZero();
-    error WrongTermsOfUse();
 }
