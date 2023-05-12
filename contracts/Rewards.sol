@@ -18,6 +18,15 @@ error NotWhitelisted();
 error InsufficientBalance(uint256 available, uint256 required);
 error UserHasNoVeToken();
 
+// Structs
+struct Account {
+    uint256 rewardPerTokenPaid;
+    uint256 rewards;
+    uint256 lastBalance;
+    uint248 dueDate;
+    bool isStarted;
+}
+
 /**
  * @title Implements a reward system which grant rewards based on veToken balance
  * @author gcontarini jocorrei
@@ -31,14 +40,6 @@ contract Rewards is
     Trustable
 {
     using SafeERC20 for IERC20;
-
-    struct Account {
-        uint256 rewardPerTokenPaid;
-        uint256 rewards;
-        uint256 lastBalance;
-        uint248 dueDate;
-        bool isStarted;
-    }
 
     /* ========== STATE VARIABLES ========== */
 
