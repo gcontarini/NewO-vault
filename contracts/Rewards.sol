@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.13;
 
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "./interfaces/IVeVault.sol";
+import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import {IVeVault} from "./interfaces/IVeVault.sol";
 
 // Inheritance
-import "./RewardsDistributionRecipient.sol";
-import "./Trustable.sol";
+import {RewardsDistributionRecipient, Owned} from "./RewardsDistributionRecipient.sol";
+import {Trustable} from "./Trustable.sol";
+import {Pausable} from "./Pausable.sol";
 
 // Custom errors
 error RewardTooHigh();
@@ -26,6 +27,7 @@ error UserHasNoVeToken();
 contract Rewards is
     RewardsDistributionRecipient,
     ReentrancyGuard,
+    Pausable,
     Trustable
 {
     using SafeERC20 for IERC20;
@@ -35,7 +37,7 @@ contract Rewards is
         uint256 rewards;
         uint256 lastBalance;
         uint248 dueDate;
-        bool    isStarted;
+        bool isStarted;
     }
 
     /* ========== STATE VARIABLES ========== */
@@ -169,8 +171,7 @@ contract Rewards is
         uint256 moreReward = 0;
         if (currentReward > paidReward) {
             moreReward =
-                (accounts[owner].lastBalance *
-                    (currentReward - paidReward)) /
+                (accounts[owner].lastBalance * (currentReward - paidReward)) /
                 1e18;
         }
         return accounts[owner].rewards + moreReward;
@@ -196,6 +197,7 @@ contract Rewards is
     )
         public
         onlyTrustedControllers
+        notPaused
         updateReward(user)
         returns (Account memory)
     {
@@ -214,7 +216,7 @@ contract Rewards is
      */
     function getReward(
         address user
-    ) public onlyTrustedControllers updateReward(user) {
+    ) public onlyTrustedControllers notPaused updateReward(user) {
         uint256 reward = accounts[user].rewards;
         if (reward <= 0) return;
 
@@ -267,11 +269,29 @@ contract Rewards is
 
     /**
      * @notice Added to support to recover ERC20 token within a whitelist
+     * @param tokenAddress address of the token to recover
+     * @param tokenAmount amount of tokens to recover
      */
     function recoverERC20(
         address tokenAddress,
         uint256 tokenAmount
     ) external onlyOwner {
+        _recoverERC20(tokenAddress, tokenAmount);
+    }
+
+    /**
+     * @notice Added to support to recover all balnce of ERC20 token
+     * within a whitelist
+     * @param tokenAddress address of the token to recover
+     */
+    function recoverERC20(address tokenAddress) external onlyOwner {
+        _recoverERC20(
+            tokenAddress,
+            IERC20(tokenAddress).balanceOf(address(this))
+        );
+    }
+
+    function _recoverERC20(address tokenAddress, uint256 tokenAmount) private {
         if (whitelistRecoverERC20[tokenAddress] == false)
             revert NotWhitelisted();
 
@@ -326,17 +346,22 @@ contract Rewards is
 
         if (owner != address(0)) {
             uint balance = IVeVault(vault).balanceOf(owner);
-            if (!accounts[owner].isStarted)
-            {
+            if (!accounts[owner].isStarted) {
                 accounts[owner].isStarted = true;
+                // Those values are used inside earned function
                 accounts[owner].lastBalance = balance;
-                accounts[owner].dueDate = uint248(IVeVault(vault).unlockDate(owner));
+                accounts[owner].dueDate = uint248(
+                    IVeVault(vault).unlockDate(owner)
+                );
                 accounts[owner].rewardPerTokenPaid = rewardPerTokenStored;
             }
             accounts[owner].rewards = earned(owner);
             accounts[owner].rewardPerTokenPaid = rewardPerToken(address(0));
+            // Overwrite values for the next update call
             accounts[owner].lastBalance = balance;
-            accounts[owner].dueDate = uint248(IVeVault(vault).unlockDate(owner));
+            accounts[owner].dueDate = uint248(
+                IVeVault(vault).unlockDate(owner)
+            );
         }
         _;
     }
