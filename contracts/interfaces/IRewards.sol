@@ -42,4 +42,10 @@ interface IRewards {
      * a notify but the function will return true anyway.
      */
     function isRegistered(address user) external view returns (bool);
+
+    /**
+     * @notice Get the state of the contract
+     * @return bool if the contract is paused
+     */
+    function paused() external view returns (bool);
 }

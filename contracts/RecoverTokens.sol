@@ -38,7 +38,7 @@ abstract contract RecoverTokens is Owned {
     }
 
     /**
-     * @notice Added to support to recover all balnce of ERC20 token
+     * @notice Added to support to recover all balance of ERC20 token
      * within a whitelist
      * @param tokenAddress address of the token to recover
      */

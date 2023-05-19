@@ -234,6 +234,7 @@ contract RewardsController is Owned, Pausable, RecoverTokens {
     /**
      * @notice Get all rewards from all rewards contracts
      * @dev This must never revert
+     * @dev  If a rewards contract is paused, it will be skipped so the transaction go through.
      */
     function getAllRewards(
         bytes calldata signature
@@ -241,7 +242,10 @@ contract RewardsController is Owned, Pausable, RecoverTokens {
         uint length = rewardsContracts.length;
         for (uint i = 0; i < length; ) {
             IRewards rewardsContract = IRewards(rewardsContracts[i]);
-            rewardsContract.getReward(msg.sender);
+
+            if (!rewardsContract.paused()) {
+                rewardsContract.getReward(msg.sender);
+            }
 
             unchecked {
                 i++;
@@ -251,8 +255,9 @@ contract RewardsController is Owned, Pausable, RecoverTokens {
 
     /**
      * @notice Notify all rewards contracts that a deposit has been made
-     * @dev This function should be called after a deposit has been made
+     * @dev This function should be called after a deposit has been made.
      * @dev This must never revert
+     * @dev  If a rewards contract is paused, it will be skipped so the transaction go through.
      */
     function notifyAllDeposit(
         bytes calldata signature
@@ -260,7 +265,10 @@ contract RewardsController is Owned, Pausable, RecoverTokens {
         uint length = rewardsContracts.length;
         for (uint i = 0; i < length; ) {
             IRewards rewardsContract = IRewards(rewardsContracts[i]);
-            rewardsContract.notifyDeposit(msg.sender);
+
+            if (!rewardsContract.paused()) {
+                rewardsContract.notifyDeposit(msg.sender);
+            }
 
             unchecked {
                 i++;

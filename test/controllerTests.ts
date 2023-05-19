@@ -560,6 +560,173 @@ describe("Controller tests", async function () {
         })
     })
 
+    describe("Testing exitAllRewards()", async () => {
+        before(initialize);
+        it("Should revert if wrong declaration is passed or the signer is not the caller", async () => {
+            let hashedWrongDeclaration = ethers.utils.solidityKeccak256(["string"], ["wrong declaration"])
+
+            let wrongSignature = await owner.signMessage(ethers.utils.arrayify(hashedWrongDeclaration))
+
+            await expect(controller.connect(owner).exitAllRewards(wrongSignature)).to.be.revertedWith("WrongTermsOfUse");
+
+            await expect(controller.connect(addr1).exitAllRewards(signatureAddr2)).to.be.revertedWith("WrongTermsOfUse");
+        })
+
+        it("Should not revert if there is no rewards contracts set", async () => {
+            await expect(controller.connect(addr1).exitAllRewards(signatureAddr1)).not.to.be.reverted;
+        })
+
+        it("Should revert is user's grace period is not over and collect all rewards and exit from veNewo if user grace period is over", async () => {
+
+            const rewardAmount = 1000000;
+
+            const totalRewards = (parseNewo(rewardAmount) as BigNumber).mul(3)
+
+            await setReward(rewardAmount, days(90), rewards);
+
+            await setReward(rewardAmount, days(90), rewards1);
+
+            await setReward(rewardAmount, days(90), rewards2);
+
+            await newoToken.connect(treasury).transfer(address(addr1), parseNewo(1000));
+
+            const { balNewo: intitialNewoBal } = await checkBalances(addr1);
+
+            await veNewo
+                .connect(addr1)
+            ["deposit(uint256,address,uint256)"](
+                parseNewo(1000),
+                address(addr1),
+                years(2)
+            )
+
+            const { balNewo: balNewoAddr1Before } = await checkBalances(addr1);
+
+            await controller.connect(owner).bulkAddRewardsContract([rewards.address, rewards1.address, rewards2.address])
+
+            await controller.connect(addr1).notifyAllDeposit(signatureAddr1);
+
+            await timeTravel(years(2));
+
+            await expect(controller.connect(addr1).exitAllRewards(signatureAddr1)).to.be.revertedWith("FundsNotUnlocked");
+
+            // Time travel to after grace period
+            await timeTravel(days(8))
+
+            await controller.connect(addr1).exitAllRewards(signatureAddr1);
+
+            const { balNewo: balNewoAddr1After } = await checkBalances(addr1);
+
+            let balaceDiff = (balNewoAddr1After as BigNumber).sub(balNewoAddr1Before as BigNumber)
+
+            balaceDiff = (balNewoAddr1After as BigNumber).sub(intitialNewoBal as BigNumber)
+
+            // we are accepting +/- 0.001% rouding errors
+            const lowerBound = (totalRewards as BigNumber).mul(99999).div(100000);
+            const upperBound = (totalRewards as BigNumber).mul(100001).div(100000);
+
+            expect(balaceDiff).to.be.gte(lowerBound).and.lte(upperBound)
+
+            const veNewoBalance = await veNewo.balanceOf(address(addr1))
+
+            expect(veNewoBalance).to.be.equal(0)
+        })
+    })
+
+    describe("Testing Pausable()", async () => {
+        before(initialize);
+
+        it("Should revert if the caller is not the owner", async () => {
+            await expect(controller.connect(addr1).setPaused(true)).to.be.revertedWith("NotOwner()");
+        });
+        it("Owner should be able to change the pause state", async () => {
+            expect(await controller.paused()).to.be.false;
+            await controller.connect(owner).setPaused(true);
+            expect(await controller.paused()).to.be.true;
+        })
+        it("User should not be able to notifyAllDeposit or getAllRewards if the contract is paused", async () => {
+            const rewardAmount = 1000000;
+
+            await setReward(rewardAmount, days(90), rewards);
+
+            await setReward(rewardAmount, days(90), rewards1);
+
+            await setReward(rewardAmount, days(90), rewards2);
+
+            await newoToken.connect(treasury).transfer(address(addr1), parseNewo(1000));
+
+            await veNewo
+                .connect(addr1)
+            ["deposit(uint256,address,uint256)"](
+                parseNewo(1000),
+                address(addr1),
+                years(2)
+            )
+
+            await controller.connect(owner).bulkAddRewardsContract([rewards.address, rewards1.address, rewards2.address])
+
+            await expect(controller.connect(addr1).notifyAllDeposit(signatureAddr1)).to.be.revertedWith("Paused()");
+
+            // Unpause the contract
+            await controller.connect(owner).setPaused(false);
+
+            // User notifyAll deposit
+            await expect(controller.connect(addr1).notifyAllDeposit(signatureAddr1)).to.not.be.reverted;
+
+            // Pause the contract again
+            await controller.connect(owner).setPaused(true);
+
+            // Time travel
+            await timeTravel(days(5));
+
+            // User try to get all rewards but contract is paused
+            await expect(controller.connect(addr1).getAllRewards(signatureAddr1)).to.be.revertedWith("Paused()");
+
+            //Unpause controller
+            await controller.connect(owner).setPaused(false);
+        })
+        it("If one Rewards Contract is paused, the user should be able to get rewards from the other contracts", async () => {
+            expect(await rewards.paused()).to.be.false;
+            await rewards.connect(owner).setPaused(true);
+            expect(await rewards.paused()).to.be.true;
+
+            await timeTravel(days(100));
+
+            const { balNewo: balNewoAddr1Before } = await checkBalances(addr1);
+
+            await controller.connect(addr1).getAllRewards(signatureAddr1);
+
+            const { balNewo: balNewoAddr1After } = await checkBalances(addr1);
+
+            const balaceDiff = (balNewoAddr1After as BigNumber).sub(balNewoAddr1Before as BigNumber)
+
+            // Expecting user to have rewards from 2 of the 3 contracts. Considering the rounding errors, we are accepting +/- 0.001% rouding errors
+            const lowerBound = (parseNewo(1000000 * 2) as BigNumber).mul(99999).div(100000);
+            const upperBound = (parseNewo(1000000 * 2) as BigNumber).mul(100001).div(100000);
+
+            expect(balaceDiff).to.be.gte(lowerBound).and.lte(upperBound)
+
+            //Unpause the contract and get the missing rewards for that user
+            await rewards.connect(owner).setPaused(false);
+
+            const { balNewo: balNewoAddr1Before2 } = await checkBalances(addr1);
+
+            await controller.connect(addr1).getAllRewards(signatureAddr1);
+
+            const { balNewo: balNewoAddr1After2 } = await checkBalances(addr1);
+
+            const balaceDiff2 = (balNewoAddr1After2 as BigNumber).sub(balNewoAddr1Before2 as BigNumber)
+
+            // Expecting user to have rewards from 1 of the 3 contracts. Considering the rounding errors, we are accepting +/- 0.001% rouding errors
+            const lowerBound2 = (parseNewo(1000000) as BigNumber).mul(99999).div(100000);
+            const upperBound2 = (parseNewo(1000000) as BigNumber).mul(100001).div(100000);
+
+            expect(balaceDiff2).to.be.gte(lowerBound2).and.lte(upperBound2)
+        })
+    })
+
+    /* ================================= EDGE CASES ================================= */
+
     describe("Testing getAllRewards() edge cases", async () => {
         before(initialize);
 
@@ -726,78 +893,213 @@ describe("Controller tests", async function () {
         })
     })
 
-    describe("Testing exitAllRewards()", async () => {
+    describe("Testing getAllRewards() exploit edge case", async () => {
+        // 1. Both users deposit the same amount of Newo for veNewo and notifyAllDeposit
+        // 2. Time goes by.
+        // 3. User 2 deposit more Newo for veNewo and notifyAllDeposit again
+        // 4. Both users claim rewards right after. Users should earn the same amount of rewards.
+        // 5. Time goes by.
+        // 6. Both users getAllRewards again.
+        // 7. User 2 should earn more rewards since it have more veNewo for this period.
+
         before(initialize);
-        it("Should revert if wrong declaration is passed or the signer is not the caller", async () => {
-            let hashedWrongDeclaration = ethers.utils.solidityKeccak256(["string"], ["wrong declaration"])
-
-            let wrongSignature = await owner.signMessage(ethers.utils.arrayify(hashedWrongDeclaration))
-
-            await expect(controller.connect(owner).exitAllRewards(wrongSignature)).to.be.revertedWith("WrongTermsOfUse");
-
-            await expect(controller.connect(addr1).exitAllRewards(signatureAddr2)).to.be.revertedWith("WrongTermsOfUse");
-        })
-
-        it("Should not revert if there is no rewards contracts set", async () => {
-            await expect(controller.connect(addr1).exitAllRewards(signatureAddr1)).not.to.be.reverted;
-        })
-
-        it("Should revert is user's grace period is not over and collect all rewards and exit from veNewo if user grace period is over", async () => {
-
-            const rewardAmount = 1000000;
-
-            const totalRewards = (parseNewo(rewardAmount) as BigNumber).mul(3)
+        it("Getting more rewards right before collecting should not change considerably the amount of rewards earned by an user", async () => {
+            const rewardAmount = 1000;
 
             await setReward(rewardAmount, days(90), rewards);
+            await controller.connect(owner).bulkAddRewardsContract([rewards.address])
 
-            await setReward(rewardAmount, days(90), rewards1);
+            // give 1000 Newo to addr2
+            await newoToken.connect(treasury).transfer(address(addr2), parseNewo(1000));
 
-            await setReward(rewardAmount, days(90), rewards2);
+            await checkBalances(addr2);
+            await checkBalances(addr1);
 
-            await newoToken.connect(treasury).transfer(address(addr1), parseNewo(1000));
-
-            const { balNewo: intitialNewoBal } = await checkBalances(addr1);
-
+            // Both users deposit the same amount of Newo for veNewo
             await veNewo
                 .connect(addr1)
             ["deposit(uint256,address,uint256)"](
-                parseNewo(1000),
+                parseNewo(500),
                 address(addr1),
                 years(2)
             )
 
-            const { balNewo: balNewoAddr1Before } = await checkBalances(addr1);
+            await veNewo
+                .connect(addr2)
+            ["deposit(uint256,address,uint256)"](
+                parseNewo(500),
+                address(addr2),
+                years(2)
+            )
 
-            await controller.connect(owner).bulkAddRewardsContract([rewards.address, rewards1.address, rewards2.address])
-
+            // Both users notifyAllDeposit
             await controller.connect(addr1).notifyAllDeposit(signatureAddr1);
+            await controller.connect(addr2).notifyAllDeposit(signatureAddr2);
 
-            await timeTravel(years(2));
+            // Time travel 30 days
+            await timeTravel(days(30));
 
-            await expect(controller.connect(addr1).exitAllRewards(signatureAddr1)).to.be.revertedWith("FundsNotUnlocked");
+            // User 2 gets more veNewo before colecting rewards
+            await veNewo
+                .connect(addr2)
+            ["deposit(uint256,address,uint256)"](
+                parseNewo(500),
+                address(addr2),
+                years(2)
+            )
 
-            // Time travel to after grace period
-            await timeTravel(days(8))
+            // Get balance of both users before collecting rewards
+            const { balNewo: balNewoAddr2 } = await checkBalances(addr2);
+            const { balNewo: balNewoAddr1 } = await checkBalances(addr1);
 
-            await controller.connect(addr1).exitAllRewards(signatureAddr1);
+            // Both users collect all rewards
+            await controller.connect(addr1).getAllRewards(signatureAddr1);
+            await controller.connect(addr2).getAllRewards(signatureAddr2);
 
+            // Get balance of both users after collecting rewards
+            const { balNewo: balNewoAddr2After } = await checkBalances(addr2);
             const { balNewo: balNewoAddr1After } = await checkBalances(addr1);
 
-            let balaceDiff = (balNewoAddr1After as BigNumber).sub(balNewoAddr1Before as BigNumber)
+            // Collected rewards should be the same
+            const addr1Rewards = (balNewoAddr1After as BigNumber).sub(balNewoAddr1 as BigNumber);
+            const addr2Rewards = (balNewoAddr2After as BigNumber).sub(balNewoAddr2 as BigNumber);
 
-            balaceDiff = (balNewoAddr1After as BigNumber).sub(intitialNewoBal as BigNumber)
+            //We are expecting a 0.001% rounding error
+            const lowerBound = (addr1Rewards as BigNumber).mul(99999).div(100000);
+            const upperBound = (addr1Rewards as BigNumber).mul(100001).div(100000);
 
-            // we are accepting +/- 0.001% rouding errors
-            const lowerBound = (totalRewards as BigNumber).mul(99999).div(100000);
-            const upperBound = (totalRewards as BigNumber).mul(100001).div(100000);
+            // Users should receive the same amount of rewards, considering the 0.001% rounding error
+            expect(addr2Rewards).to.be.gte(lowerBound).and.lte(upperBound)
 
-            expect(balaceDiff).to.be.gte(lowerBound).and.lte(upperBound)
+            // Time travel more 30 days
+            await timeTravel(days(30));
 
-            const veNewoBalance = await veNewo.balanceOf(address(addr1))
+            /*
+            * Both users collect all rewards again.
+            * User 2 should collect the double of rewards now since it has double the veNewo for this period
+            */
 
-            expect(veNewoBalance).to.be.equal(0)
+            const { balNewo: balNewoAddr2Before } = await checkBalances(addr2);
+            const { balNewo: balNewoAddr1Before } = await checkBalances(addr1);
+
+            await controller.connect(addr1).getAllRewards(signatureAddr1);
+            await controller.connect(addr2).getAllRewards(signatureAddr2);
+
+            const { balNewo: balNewoAddr2After1 } = await checkBalances(addr2);
+            const { balNewo: balNewoAddr1After1 } = await checkBalances(addr1);
+
+            // Get rewards collected for each user
+            const addr1Rewards1 = (balNewoAddr1After1 as BigNumber).sub(balNewoAddr1Before as BigNumber);
+            const addr2Rewards1 = (balNewoAddr2After1 as BigNumber).sub(balNewoAddr2Before as BigNumber);
+
+            // User 2 should have collected the double of rewards
+            expect((addr1Rewards1 as BigNumber).mul(2)).to.be.equal(addr2Rewards1)
         })
     })
+
+    describe.only("Testing getAllRewards() exploit edge case", async () => {
+        // 1. Both users deposit the same amount of Newo (amount1) for veNewo and notifyAllDeposit
+        // 2. Time skip to after User 2 veNewo due date.
+        // 3. User 2 withdraw veNewo.
+        // 4. User 2 deposit more Newo for veNewo and notifyAllDeposit again. (amount2)
+        // 5. Both users getAllRewards again. User 2 should earn rewards based on amount1 (same as user1) ->> bug
+        // 6. Time goes by.
+        // 7. User 2 getAllRewards again. User 2 should earn rewards based on amount2 (less than user since amount2 < amount1)
+
+        before(initialize);
+        it("Getting more rewards right before collecting should not change considerably the amount of rewards earned by an user", async () => {
+            const rewardAmount = 1000;
+
+            await setReward(rewardAmount, days(180), rewards);
+            await controller.connect(owner).bulkAddRewardsContract([rewards.address])
+
+            // give 1000 Newo to addr2
+            await newoToken.connect(treasury).transfer(address(addr2), parseNewo(1000));
+
+            await checkBalances(addr2);
+            await checkBalances(addr1);
+
+            // Both users deposit the same amount of Newo for veNewo for 90 days
+            await veNewo
+                .connect(addr1)
+            ["deposit(uint256,address,uint256)"](
+                parseNewo(500),
+                address(addr1),
+                days(180)
+            )
+
+            await veNewo
+                .connect(addr2)
+            ["deposit(uint256,address,uint256)"](
+                parseNewo(500),
+                address(addr2),
+                days(90)
+            )
+
+            // Both users notifyAllDeposit
+            await controller.connect(addr1).notifyAllDeposit(signatureAddr1);
+            await controller.connect(addr2).notifyAllDeposit(signatureAddr2);
+
+            // Time travel to user2 due dates
+            await timeTravel(days(91));
+
+            // User 2 withdraws veNewo
+            await veNewo.connect(addr2).withdraw(parseNewo(500), address(addr2), address(addr2));
+
+            const { balNewo: y } = await checkBalances(addr2);
+            const { balNewo: x } = await checkBalances(addr1);
+
+            // Both users getAllRewards
+            await controller.connect(addr1).getAllRewards(signatureAddr1);
+            await controller.connect(addr2).getAllRewards(signatureAddr2);
+
+            // Get balance of both users before collecting rewards
+            console.log("im here!");
+
+            const { balNewo: balNewoAddr2 } = await checkBalances(addr2);
+            const { balNewo: balNewoAddr1 } = await checkBalances(addr1);
+
+
+            // User 2 deposit more Newo for veNewo and notifyAllDeposit again (amount2 < amount1)
+
+            // await veNewo
+            //     .connect(addr2)
+            // ["deposit(uint256,address,uint256)"](
+            //     parseNewo(100),
+            //     address(addr2),
+            //     days(180)
+            // )
+
+            // await controller.connect(addr2).notifyAllDeposit(signatureAddr2);
+
+            // // Time travel to user2 due dates
+            // await timeTravel(days(30));
+
+            // console.log("User 2");
+            // const { balNewo: z } = await checkBalances(addr2);
+
+            // console.log("User 1");
+            // const { balNewo: k } = await checkBalances(addr1);
+
+            //Both users getAllRewards
+
+
+            // await controller.connect(addr2).getAllRewards(signatureAddr2);
+            // console.log("here");
+            // await controller.connect(addr1).getAllRewards(signatureAddr1);
+
+
+            // // Get balance of both users after collecting rewards
+            // console.log("User 2");
+
+            // const { balNewo: m } = await checkBalances(addr2);
+
+            // console.log("User 1");
+            // const { balNewo: l } = await checkBalances(addr1);
+            // const { balNewo: balNewoAddr1After } = await checkBalances(addr1);
+        })
+    })
+
 
     async function setReward(rewardAmount: number, distributionPeriod: number, rewardsContract: Rewards) {
 

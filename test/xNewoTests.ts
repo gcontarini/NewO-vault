@@ -987,8 +987,8 @@ describe("xNewo tests", function () {
                 newoAdded: newoToLpAddr1
             } = await addSushiLiquidity(addr1, newoToLp, USDCToLp);
 
-            console.log("Account 2 Newo added to Lp", newoToLpAddr2);
-            console.log("Account 1 Newo added to Lp", newoToLpAddr1);
+            // console.log("Account 2 Newo added to Lp", newoToLpAddr2);
+            // console.log("Account 1 Newo added to Lp", newoToLpAddr1);
 
             // addr1 lock newo for veNewo to earn bonus
             await veNewo
@@ -1062,7 +1062,7 @@ describe("xNewo tests", function () {
             balLp: lpBalBefore
         } = await checkBalances(signer);
 
-        console.log(`\tadding liquidity by ${address(signer)}...\n\n`);
+        // console.log(`\tadding liquidity by ${address(signer)}...\n\n`);
 
         await ROUTER.connect(signer).addLiquidity(
             address(newoToken),
@@ -1095,7 +1095,7 @@ describe("xNewo tests", function () {
 
         const tokensToReward = parseNewo(rewardAmount);
 
-        console.log("\n Setting distribution reward");
+        // console.log("\n Setting distribution reward");
 
         await xNewo
             .connect(owner)
@@ -1120,33 +1120,33 @@ describe("xNewo tests", function () {
         const balXNewo = await balanceXNewo(signer);
         const balLp = await balanceLp(signer);
         const balUSDC = await balanceUSDC(signer);
-        console.log("\tBalance report:");
+        // console.log("\tBalance report:");
 
-        console.log(
-            `\tbalance of newo of ${address(signer)}: ${formatNewo(
-                balNewo
-            )}`
-        );
-        console.log(
-            `\tbalance of veNewo of ${address(signer)}: ${formatVeNewo(
-                balVeNewo
-            )}`
-        );
-        console.log(
-            `\tbalance of XNewo of ${address(signer)}: ${formatXNewo(
-                balXNewo
-            )}`
-        );
-        console.log(
-            `\tbalance of Lp of ${address(signer)}: ${formatLp(
-                balLp
-            )}`
-        );
-        console.log(
-            `\tbalance of USDC of ${address(signer)}: ${formatUSDC(
-                balUSDC
-            )}\n`
-        );
+        // console.log(
+        //     `\tbalance of newo of ${address(signer)}: ${formatNewo(
+        //         balNewo
+        //     )}`
+        // );
+        // console.log(
+        //     `\tbalance of veNewo of ${address(signer)}: ${formatVeNewo(
+        //         balVeNewo
+        //     )}`
+        // );
+        // console.log(
+        //     `\tbalance of XNewo of ${address(signer)}: ${formatXNewo(
+        //         balXNewo
+        //     )}`
+        // );
+        // console.log(
+        //     `\tbalance of Lp of ${address(signer)}: ${formatLp(
+        //         balLp
+        //     )}`
+        // );
+        // console.log(
+        //     `\tbalance of USDC of ${address(signer)}: ${formatUSDC(
+        //         balUSDC
+        //     )}\n`
+        // );
         return { balNewo, balVeNewo , balXNewo, balLp, balUSDC };
     }
 });

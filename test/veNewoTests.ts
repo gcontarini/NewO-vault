@@ -766,7 +766,7 @@ describe("veNewo tests", async function () {
 
                 // TODO: claim the rewards
                 // await rewards.getReward();
-                console.log("\texiting...");
+                // console.log("\texiting...");
                 await veNewo.connect(addr1).exit();
 
                 const { balNewo: balNewoAfter } = await checkBalances(addr1);
@@ -818,7 +818,7 @@ describe("veNewo tests", async function () {
                 await timeTravel(restOfThePeriod + days(3));
 
                 // exit
-                console.log("\taddr2 try to withdraw for addr1");
+                // console.log("\taddr2 try to withdraw for addr1");
                 await expect(
                     veNewo
                         .connect(addr2)
@@ -838,7 +838,7 @@ describe("veNewo tests", async function () {
                 );
 
                 // exit
-                console.log("\taddr2 try to withdraw for addr1");
+                // console.log("\taddr2 try to withdraw for addr1");
                 await veNewo
                     .connect(addr2)
                     .withdraw(
@@ -863,7 +863,7 @@ describe("veNewo tests", async function () {
         const { balNewo: balNewoBefore } = await checkBalances(addr1);
 
         // deposit
-        console.log("\tdepositing...");
+        // console.log("\tdepositing...");
         await veNewo
             .connect(addr1)
             ["deposit(uint256,address,uint256)"](
