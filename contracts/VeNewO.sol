@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity 0.8.13;
 
 // Inheritance
 import "./VeVault.sol";
@@ -23,7 +23,7 @@ contract VeNewO is VeVault("veNewO", "veNWO") {
         _lockTimer.max = maxLockTime_;
         _lockTimer.epoch = epoch_;
         _lockTimer.enforce = true;
-        
+
         _penalty.gracePeriod = gracePeriod_;
         _penalty.maxPerc = maxPenalty_;
         _penalty.minPerc = minPenalty_;

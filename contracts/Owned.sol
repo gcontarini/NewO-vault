@@ -1,5 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity 0.8.13;
+
+// Errors
+error OwnerCannotBeZero();
+error NewOwnerNotNominated();
+error NotOwner();
 
 // https://docs.synthetix.io/contracts/source/contracts/Owned
 abstract contract Owned {
@@ -7,7 +12,7 @@ abstract contract Owned {
     address public nominatedOwner;
 
     constructor(address _owner) {
-        require(_owner != address(0), "Owner address cannot be 0");
+        if (_owner == address(0)) revert OwnerCannotBeZero();
         owner = _owner;
         emit OwnerChanged(address(0), _owner);
     }
@@ -18,19 +23,19 @@ abstract contract Owned {
     }
 
     function acceptOwnership() external {
-        require(msg.sender == nominatedOwner, "You must be nominated before you can accept ownership");
+        if (msg.sender != nominatedOwner) revert NewOwnerNotNominated();
         emit OwnerChanged(owner, nominatedOwner);
         owner = nominatedOwner;
         nominatedOwner = address(0);
     }
 
-    modifier onlyOwner {
+    modifier onlyOwner() {
         _onlyOwner();
         _;
     }
 
     function _onlyOwner() private view {
-        require(msg.sender == owner, "Only the contract owner may perform this action");
+        if (msg.sender != owner) revert NotOwner();
     }
 
     event OwnerNominated(address newOwner);

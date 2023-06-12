@@ -170,11 +170,11 @@ describe("Rewards tests", async function () {
         before(initialize);
         it("notifyRewardAmount() should only called by rewardsDistributor", async () => {
             const numberOfTokens = parseNewo(10000);
-        
+
             await expect(rewards
                 .connect(addr1)
                 .notifyRewardAmount(numberOfTokens)
-            ).to.be.revertedWith("Caller is not RewardsDistribution contract");
+            ).to.be.revertedWith("OnlyRewardsDistribution()");
         })
         it("notifyRewardAmount() should revert if reward notified is bigger than contract's balance", async () => {
             const tokensToTransfer = parseNewo(10000);
@@ -183,11 +183,11 @@ describe("Rewards tests", async function () {
             await rewards
                 .connect(owner)
                 .setRewardsDuration(days(20))
-            
+
             await newoToken
                 .connect(treasury)
                 .transfer(address(rewards), tokensToTransfer)
-            
+
             await expect(rewards
                 .connect(treasury)
                 .notifyRewardAmount(tokensToReward)
@@ -208,7 +208,7 @@ describe("Rewards tests", async function () {
             await expect(rewards
                 .connect(addr1)
                 .setRewardsDuration(days(20))
-            ).to.be.revertedWith("Only the contract owner may perform this action")
+            ).to.be.revertedWith("NotOwner()")
         })
         it("setRewardsDuration() should set the right duration", async () => {
             await rewards
@@ -268,7 +268,7 @@ describe("Rewards tests", async function () {
         })
     })
 
-    describe("Integrated tests",() => {
+    describe("Integrated tests", () => {
         before(initialize)
         it("Rewards should be distributed based on veNewo with right multipler", async () => {
             const rewardAmount = 1000000;
@@ -356,7 +356,7 @@ describe("Rewards tests", async function () {
         const balNewo = await balanceNewo(signer);
         const balVeNewo = await balanceVeNewo(signer);
         console.log("\tBalance report:");
-        
+
         console.log(
             `\tbalance of newo of ${address(signer)}: ${formatNewo(
                 balNewo

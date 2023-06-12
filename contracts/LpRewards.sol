@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity 0.8.13;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
-import "./Pausable.sol";
+// Inheritance
 import "./RewardsDistributionRecipient.sol";
+import "./Pausable.sol";
+import "./Trustable.sol";
 
 import "./interfaces/IUniswapV2Pair.sol";
 import "./interfaces/IVeVault.sol";
@@ -20,14 +22,14 @@ error RewardTooHigh(uint256 allowed, uint256 reward);
 error NotWhitelisted();
 error InsufficientBalance();
 
-/** 
+/**
  * @title Implements a reward system which grants rewards based on LP
  * staked in this contract and grants boosts based on depositor veToken balance
  * @author gcontarini jocorrei
  * @dev This implementation tries to follow the ERC4626 standard
- * Implement a new constructor to deploy this contract 
+ * Implement a new constructor to deploy this contract
  */
-abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRecipient, IERC4626 {
+abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRecipient, IERC4626, Trustable {
     using SafeERC20 for IERC20;
 
     struct Account {
@@ -42,7 +44,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         uint256 managedAssets;
         uint256 supply;
     }
-    
+
     /* ========= STATE VARIABLES ========= */
 
     // veVault
@@ -67,8 +69,8 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     uint256 public lastUpdateTime;
 
     // Math precision
-    uint256 internal constant PRECISION = 1e18; 
-    
+    uint256 internal constant PRECISION = 1e18;
+
     // ERC20 metadata (The share token)
     string public _name;
     string public _symbol;
@@ -84,14 +86,14 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     }
 
     /* ============ VIEWS (IERC4626) =================== */
-    
+
     /**
      * @notice Address of asset token
      */
     function asset() override external view returns (address assetTokenAddress) {
         return assetToken;
     }
-    
+
     /**
      * @notice Total of LP tokens hold by the contract
      */
@@ -122,7 +124,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         return accounts[owner].assets;
     }
 
-    /** 
+    /**
      * @notice Maximum amount of the underlying asset that can
      * be deposited into the Vault for the receiver, through a deposit call.
      * @dev Compliant to the ERC4626 interface.
@@ -164,8 +166,8 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         return accounts[owner].assets;
     }
 
-    /** 
-     * @notice The amount of shares that the Vault would exchange 
+    /**
+     * @notice The amount of shares that the Vault would exchange
      * for the amount of assets provided, in an ideal scenario where
      * all the conditions are met.
      * @dev Compliant to the ERC4626 interface.
@@ -184,7 +186,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         return shares * PRECISION / getMultiplier(msg.sender);
     }
 
-    /** 
+    /**
      * @notice Allows an on-chain or off-chain user to simulate the
      * effects of their deposit at the current block, given current on-chain conditions.
      * @dev Compliant to the ERC4626 interface.
@@ -271,12 +273,12 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     /**
      * @notice Notify the reward contract about a deposit in the
      * veVault contract. This is important to assure the
-     * contract will account user's rewards.
+     * contract will update account user's rewards.
      * @return account with full information
      */
     function notifyDeposit() public updateReward(msg.sender) updateBoost(msg.sender) returns(Account memory) {
-        emit NotifyDeposit(msg.sender, accounts[owner].assets, accounts[owner].shares);
-        return accounts[owner];
+        emit NotifyDeposit(msg.sender, accounts[msg.sender].assets, accounts[msg.sender].shares);
+        return accounts[msg.sender];
     }
 
     /**
@@ -290,7 +292,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
 
     /**
      * @notice Calculate how much reward must be given for an user
-     * per token staked. 
+     * per token staked.
      * @return amount of reward per token updated
      */
     function rewardPerToken() public view returns (uint256) {
@@ -301,13 +303,13 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
             rewardPerTokenStored
             + ((lastTimeRewardApplicable() - lastUpdateTime)
                 * rewardRate
-                * PRECISION 
+                * PRECISION
                 / total.supply
             );
     }
-    
+
     /**
-     * @notice Calculates how much rewards a staker earned 
+     * @notice Calculates how much rewards a staker earned
      * until this moment.
      * @return amount of rewards earned so far
      */
@@ -398,16 +400,16 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     }
 
     /**
-     * @notice Get the multiplier applied for the address in the veVault contract 
+     * @notice Get the multiplier applied for the address in the veVault contract
      */
     function getMultiplier(address owner) public view returns (uint256) {
         IVeVault veToken = IVeVault(veVault);
         uint256 assetBalance = veToken.assetBalanceOf(owner);
-        
+
         // to make sure that there is no division by zero
         if (assetBalance == 0)
             return 1;
-        return veToken.balanceOf(owner) * PRECISION / assetBalance;   
+        return veToken.balanceOf(owner) * PRECISION / assetBalance;
     }
 
     /**
@@ -418,7 +420,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     }
 
     /* ========== MUTATIVE FUNCTIONS ========== */
-    
+
     /**
      * @notice Mints shares to receiver by depositing exactly amount of underlying tokens.
      * @dev Compliant to the ERC4626 interface.
@@ -462,7 +464,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
      * @dev Compliant to the ERC4626 interface
      * @param assets: amount of underlying tokens
      * @param receiver: address which tokens will be transfered to
-     * @param owner: address which controls the veTokens 
+     * @param owner: address which controls the veTokens
      * @return shares burned from owner
      */
     function withdraw(uint256 assets, address receiver, address owner)
@@ -474,7 +476,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
             returns(uint256 shares) {
         shares = assets;
         _withdraw(assets, shares, receiver, owner);
-        return shares; 
+        return shares;
     }
 
     /**
@@ -486,7 +488,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
      */
     function redeem(uint256, address, address)
             override
-            external 
+            external
             pure
             returns (uint256) {
         revert NotImplemented();
@@ -498,7 +500,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
      * @return reward claimed by the caller
      */
     function exit() external
-            nonReentrant 
+            nonReentrant
             updateReward(msg.sender)
             updateBoost(msg.sender)
             returns (uint256 reward) {
@@ -508,7 +510,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     }
 
     /* ========== RESTRICTED FUNCTIONS ========== */
-    
+
     /**
      * @dev Handles internal withdraw logic
      * Burns the correct shares amount and
@@ -520,15 +522,15 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
      * @param owner: address which controls the shares
      */
     function _withdraw(uint256 assets, uint256 shares, address receiver, address owner) internal {
-        if(assets <= 0 || owner != msg.sender 
+        if(assets <= 0 || owner != msg.sender
             || accounts[owner].assets < assets
             || (accounts[owner].shares - accounts[owner].sharesBoost) < shares)
             revert Unauthorized();
-    
+
         // Remove LP Tokens (assets)
         total.managedAssets -= assets;
         accounts[owner].assets -= assets;
-        
+
         // Remove shares
         total.supply -= shares;
         accounts[owner].shares -= shares;
@@ -538,12 +540,12 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
         // ERC4626 compliance has to emit withdraw event
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
     }
-    
+
     /**
      * @dev Handles internal deposit logic
      * Mints the correct shares amount and
      * transfer assets from caller to vault.
-     * @param assets: amount of tokens to deposit 
+     * @param assets: amount of tokens to deposit
      * @param shares: amount of shares to mint
      * @param receiver: address which the shares will be minted to, must be the same as caller
      */
@@ -564,7 +566,7 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
 
     /**
      * @notice Owner can whitelist an ERC20 to recover it afterwards.
-     * Emits and event to notify all users about it 
+     * Emits and event to notify all users about it
      * @dev It's possible to owner whitelist the underlying token
      * and do some kind of rugpull. To prevent that, it'recommended
      * that owner is a multisig address. Also, it emits an event
@@ -577,26 +579,26 @@ abstract contract LpRewards is ReentrancyGuard, Pausable, RewardsDistributionRec
     }
 
     /**
-     * @notice Added to support to recover ERC20 token within a whitelist 
+     * @notice Added to support to recover ERC20 token within a whitelist
      */
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external onlyOwner {
         if (whitelistRecoverERC20[tokenAddress] == false) revert NotWhitelisted();
-        
+
         uint balance = IERC20(tokenAddress).balanceOf(address(this));
-        if (balance < tokenAmount) revert InsufficientBalance(); 
+        if (balance < tokenAmount) revert InsufficientBalance();
 
         IERC20(tokenAddress).safeTransfer(owner, tokenAmount);
         emit Recovered(tokenAddress, tokenAmount);
     }
 
     /**
-     * @notice Added to support to recover ERC721 
+     * @notice Added to support to recover ERC721
      */
     function recoverERC721(address tokenAddress, uint256 tokenId) external onlyOwner {
         IERC721(tokenAddress).safeTransferFrom(address(this), owner, tokenId);
         emit RecoveredNFT(tokenAddress, tokenId);
     }
-    
+
     /* ========== MODIFIERS ========== */
 
     /**
